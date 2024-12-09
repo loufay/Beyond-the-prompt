@@ -275,6 +275,6 @@ disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["No Finding",
 disp.plot(cmap=plt.cm.Blues)
 plt.title(f"Confusion Matrix: {wandb.run.group}_{wandb.run.name}")
 plt.tight_layout()
-plt.savefig(os.path.join(args.save_dir, "test_confusion_matrix.png"))
+plt.savefig(os.path.join(args.save_path, "test_confusion_matrix.png"))
 wandb.log({"confusion_matrix": wandb.Image(plt)})
 wandb.finish()
