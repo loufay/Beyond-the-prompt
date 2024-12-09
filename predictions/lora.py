@@ -8,17 +8,18 @@ import torch
 from torch import nn, optim
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import confusion_matrix, roc_auc_score, accuracy_score
+from sklearn.metrics import confusion_matrix, accuracy_score, ConfusionMatrixDisplay
 from tqdm import tqdm
 import wandb
 from utils import read_image, create_wandb_run_name, calculate_subgroup_metrics, balance_dataset
-sys.path.append("/mnt/data2/datasets_lfay/MedImageInsights")
+current_dir = os.getcwd()
+current_dir = current_dir + "/MedImageInsights"
+sys.path.append(current_dir)
 from MedImageInsight.medimageinsightmodel import MedImageInsight
 from dataset.PneumoniaDataset import PneumoniaDataset
 from dataset.PneumoniaModel import PneumoniaModel
 from torch.utils.data import DataLoader
 from peft import LoraConfig, get_peft_model
-import torch.nn as nn
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning, module="torch.utils.checkpoint")
 import wandb
@@ -26,13 +27,13 @@ import wandb
 
 parser = argparse.ArgumentParser(description="Adapter fine-tuning using LORA.")
 parser.add_argument("--dataset", type=str, default="MIMIC", help="Dataset to use (MIMIC, CheXpert, VinDR)")
-parser.add_argument("--save_path", type=str, default="/mnt/data2/datasets_lfay/MedImageInsights/Results/", help="Path to save the results")
+parser.add_argument("--save_path", type=str, default=current_dir+"/Results/", help="Path to save the results")
 parser.add_argument("--only_no_finding", action="store_true", help="Filter reports for 'No Finding' samples")
 parser.add_argument("--single_disease", action="store_true", help="Filter reports for single disease occurrence")
 args = parser.parse_args()
 
 run_name = create_wandb_run_name(args, "lora")
-run_name = create_wandb_run_name(args, "mlp")
+
 # Initialize W&B
 wandb.init(
     project="MedImageInsights_3",
@@ -41,7 +42,7 @@ wandb.init(
 )
 
 
-PATH_TO_DATA = "/mnt/data2/datasets_lfay/MedImageInsights/data"
+PATH_TO_DATA = os.path.join(current_dir, "data")
 
 if args.dataset == "MIMIC":
     data_path = os.path.join(PATH_TO_DATA, "MIMIC-v1.0-512")
@@ -75,6 +76,11 @@ df_test = balance_dataset(df_test, "Pneumonia")
 train_dataset = PneumoniaDataset(df=df_train, data_dir=PATH_TO_DATA)
 val_dataset = PneumoniaDataset(df=df_val, data_dir=PATH_TO_DATA)
 test_dataset = PneumoniaDataset(df=df_test, data_dir=PATH_TO_DATA)
+
+print(f"Train dataset size: {len(train_dataset)}")
+print(f"Validation dataset size: {len(val_dataset)}")
+print(f"Test dataset size: {len(test_dataset)}")
+
 # Create DataLoader
 train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, num_workers=4)
 val_loader = DataLoader(val_dataset, batch_size=8, shuffle=False, num_workers=4)
@@ -96,12 +102,13 @@ lora_config = LoraConfig(
 )
 
 classifier = MedImageInsight(
-    model_dir="/mnt/data2/datasets_lfay/MedImageInsights/MedImageInsight/2024.09.27",
+    model_dir=os.path.join(current_dir, "MedImageInsight/2024.09.27"),
     vision_model_name="medimageinsigt-v1.0.0.pt",
     language_model_name="language_model.pth"
 )
 
 classifier.load_model()
+classifier.model.to(classifier.device)
 
 # Apply LoRA to the image encoder
 classifier.model.image_encoder = get_peft_model(classifier.model.image_encoder, lora_config)
@@ -127,7 +134,8 @@ trainable_params = [
 optimizer = optim.AdamW(trainable_params, lr=1e-4)
 # Define loss and optimizer
 criterion = nn.BCEWithLogitsLoss()
-# optimizer = optim.AdamW(classifier.model.parameters(), lr=1e-4)
+# Define learning rate scheduler
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2, verbose=True)
 
 # Move model to appropriate device
 classifier.model.to(classifier.device)
@@ -205,6 +213,12 @@ for epoch in range(num_epochs):
     print(f"Epoch [{epoch+1}/{num_epochs}], Validation Loss: {val_loss:.4f}, Accuracy: {val_accuracy:.4f}")
     wandb.log({"val_loss": val_loss, "val_accuracy": val_accuracy})
 
+    # Scheduler step
+    scheduler.step(val_loss)
+    current_lr = optimizer.param_groups[0]['lr']
+    wandb.log({"learning_rate": current_lr})
+    print(f"Current learning rate: {current_lr}")
+
     # Check for best validation loss and save model
     if val_loss < best_val_loss:
         best_val_loss = val_loss
@@ -261,6 +275,6 @@ disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["No Finding",
 disp.plot(cmap=plt.cm.Blues)
 plt.title(f"Confusion Matrix: {wandb.run.group}_{wandb.run.name}")
 plt.tight_layout()
-plt.savefig(os.path.join(output_dir, "test_confusion_matrix.png"))
+plt.savefig(os.path.join(args.save_dir, "test_confusion_matrix.png"))
 wandb.log({"confusion_matrix": wandb.Image(plt)})
 wandb.finish()
