@@ -55,7 +55,7 @@ elif args.dataset == "CheXpert":
     data_path = os.path.join(PATH_TO_DATA, "CheXpert-v1.0-512")
     results_path = os.path.join(args.save_path, "CheXpert-v1.0-512")
 
-elif args.dataset == "VinDr":
+elif args.dataset == "VinDR":
     data_path = os.path.join(PATH_TO_DATA, "vindr-pcxr")
     results_path = os.path.join(args.save_path, "vindr-pcxr")
 
