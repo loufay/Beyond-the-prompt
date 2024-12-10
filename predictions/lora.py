@@ -34,7 +34,6 @@ parser.add_argument("--train_data_percentage", type=float, default=1.0, help="Pe
 args = parser.parse_args()
 
 #DEBUG
-args.train_data_percentage = 1.0
 
 run_name = create_wandb_run_name(args, "lora")
 
