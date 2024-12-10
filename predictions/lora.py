@@ -273,6 +273,17 @@ pneumonia_accuracy = cm[1, 1] / cm[1].sum() if cm[1].sum() > 0 else 0
 print(f"No Findings Accuracy: {no_findings_accuracy:.4f}, Pneumonia Accuracy: {pneumonia_accuracy:.4f}")
 wandb.log({"test_loss": test_loss, "test_accuracy": test_accuracy, "no_findings_accuracy": no_findings_accuracy, "pneumonia_accuracy": pneumonia_accuracy})
 
+# sklearn balanced accuracy
+balanced_accuracy = sklearn.metrics.balanced_accuracy_score(test_labels, test_preds)
+print(f"Balanced Accuracy: {balanced_accuracy:.4f}")
+wandb.log({"balanced_accuracy": balanced_accuracy})
+
+# Compute macro F1 score sklearn.metrics.f1_score
+import sklearn.metrics
+f1_score = sklearn.metrics.f1_score(test_labels, test_preds, average='macro')
+print(f"F1 Score: {f1_score:.4f}")
+wandb.log({"f1_score": f1_score})
+
 # Plot confusion matrix
 disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["No Finding", "Pneumonia"])
 disp.plot(cmap=plt.cm.Blues)
