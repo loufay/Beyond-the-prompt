@@ -284,6 +284,12 @@ f1_score = sklearn.metrics.f1_score(test_labels, test_preds, average='macro')
 print(f"F1 Score: {f1_score:.4f}")
 wandb.log({"f1_score": f1_score})
 
+# Compute recall and precision sklearn.metrics.recall_score, sklearn.metrics.precision_score
+recall = sklearn.metrics.recall_score(test_labels, test_preds, average='macro')
+precision = sklearn.metrics.precision_score(test_labels, test_preds, average='macro')
+print(f"Recall: {recall:.4f}, Precision: {precision:.4f}")
+
+
 # Plot confusion matrix
 disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["No Finding", "Pneumonia"])
 disp.plot(cmap=plt.cm.Blues)
