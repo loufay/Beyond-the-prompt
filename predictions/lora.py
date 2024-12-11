@@ -31,6 +31,7 @@ parser.add_argument("--save_path", type=str, default=current_dir+"/Results/", he
 parser.add_argument("--only_no_finding", action="store_true", help="Filter reports for 'No Finding' samples")
 parser.add_argument("--single_disease", action="store_true", help="Filter reports for single disease occurrence")
 parser.add_argument("--train_data_percentage", type=float, default=1.0, help="Percentage of training data to use")
+parser.add_argument("--train_vindr_percentage", action="store_true", help="Percentage of training data to use")
 args = parser.parse_args()
 
 #DEBUG
@@ -71,7 +72,7 @@ df_train = df_train[(df_train["No Finding"] == 1) | (df_train["Pneumonia"] == 1)
 df_val = df_val[(df_val["No Finding"] == 1) | (df_val["Pneumonia"] == 1)]
 df_test = df_test[(df_test["No Finding"] == 1) | (df_test["Pneumonia"] == 1)]
 
-df_train = balance_dataset(df_train, "Pneumonia", args.train_data_percentage)
+df_train = balance_dataset(df_train, "Pneumonia", args.train_data_percentage, args.train_vindr_percentage)
 df_val = balance_dataset(df_val, "Pneumonia")
 df_test = balance_dataset(df_test, "Pneumonia")
 

@@ -282,10 +282,15 @@ def select_confident_samples(logits, top):
     return idx
 
 # Balance the dataset
-def balance_dataset(df, disease = "Pneumonia", percentage = 1):
+def balance_dataset(df, disease = "Pneumonia", percentage = 1, vindr_samples = False):
     # get value count of df.disease and balance based on lowest value
     value_count = df[disease].value_counts()
-    minority_count = int(value_count.min()*percentage)
+    if not vindr_samples:
+        minority_count = int(value_count.min()*percentage)
+    else:
+        vindr_split = {0.01: 6, 0.1: 74, 0.5:372, 0.8: 594, 1.0: 744}
+        minority_count = vindr_split[percentage]
+        
     df_class_0 = df[df[disease] == 0].sample(minority_count, random_state=42)
     df_class_1 = df[df[disease] == 1].sample(minority_count, random_state=42)
     df_balanced = pd.concat([df_class_0, df_class_1])
