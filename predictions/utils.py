@@ -78,6 +78,8 @@ def create_wandb_run_name(args, experiment_type="report"):
             "lora", # Number of reports per disease
             str(args.train_data_percentage)
         ]
+        if args.train_vindr_percentage:
+            name_parts.append("vindr_split")
 
     else:
         # Base name components
@@ -93,6 +95,8 @@ def create_wandb_run_name(args, experiment_type="report"):
     # Add single disease filter flag
     if args.single_disease:
         name_parts.append("single_disease")
+    
+    i
     
     # Join parts with underscores
     return "_".join(name_parts)
@@ -289,7 +293,7 @@ def balance_dataset(df, disease = "Pneumonia", percentage = 1, vindr_samples = F
         minority_count = int(value_count.min()*percentage)
     else:
         vindr_split = {0.01: 6, 0.1: 74, 0.5:372, 0.8: 594, 1.0: 744}
-        minority_count = vindr_split[percentage]
+        minority_count = int(vindr_split[percentage]/2)
         
     df_class_0 = df[df[disease] == 0].sample(minority_count, random_state=42)
     df_class_1 = df[df[disease] == 1].sample(minority_count, random_state=42)
