@@ -96,7 +96,6 @@ def create_wandb_run_name(args, experiment_type="report"):
     if args.single_disease:
         name_parts.append("single_disease")
     
-    i
     
     # Join parts with underscores
     return "_".join(name_parts)
