@@ -8,7 +8,7 @@ import torch
 from torch import nn, optim
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import confusion_matrix, accuracy_score, ConfusionMatrixDisplay
+from sklearn.metrics import confusion_matrix, accuracy_score, ConfusionMatrixDisplay, f1_score, recall_score, precision_score, balanced_accuracy_score
 from tqdm import tqdm
 import wandb
 from utils import read_image, create_wandb_run_name, calculate_subgroup_metrics, balance_dataset
@@ -274,19 +274,19 @@ print(f"No Findings Accuracy: {no_findings_accuracy:.4f}, Pneumonia Accuracy: {p
 wandb.log({"test_loss": test_loss, "test_accuracy": test_accuracy, "no_findings_accuracy": no_findings_accuracy, "pneumonia_accuracy": pneumonia_accuracy})
 
 # sklearn balanced accuracy
-balanced_accuracy = sklearn.metrics.balanced_accuracy_score(test_labels, test_preds)
+balanced_accuracy = balanced_accuracy_score(test_labels, test_preds)
 print(f"Balanced Accuracy: {balanced_accuracy:.4f}")
 wandb.log({"balanced_accuracy": balanced_accuracy})
 
 # Compute macro F1 score sklearn.metrics.f1_score
-import sklearn.metrics
-f1_score = sklearn.metrics.f1_score(test_labels, test_preds, average='macro')
+
+f1_score = f1_score(test_labels, test_preds, average='macro')
 print(f"F1 Score: {f1_score:.4f}")
 wandb.log({"f1_score": f1_score})
 
 # Compute recall and precision sklearn.metrics.recall_score, sklearn.metrics.precision_score
-recall = sklearn.metrics.recall_score(test_labels, test_preds, average='macro')
-precision = sklearn.metrics.precision_score(test_labels, test_preds, average='macro')
+recall = recall_score(test_labels, test_preds, average='macro')
+precision = precision_score(test_labels, test_preds, average='macro')
 print(f"Recall: {recall:.4f}, Precision: {precision:.4f}")
 
 
