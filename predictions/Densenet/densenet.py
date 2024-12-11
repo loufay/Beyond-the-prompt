@@ -33,6 +33,8 @@ parser.add_argument("--batch_size", type=int, default=32, help="Batch size.")
 parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs.")
 parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate.")
 parser.add_argument("--train_data_percentage", type=float, default=1, help="Percentage of training data to use.")
+parser.add_argument("--train_vindr_percentage", action="store_true", help="Percentage of training data to use")
+
 args = parser.parse_args()
 
 wandb.init(
@@ -62,7 +64,7 @@ val_df = val_df[(val_df["No Finding"] == 1) | (val_df["Pneumonia"] == 1)]
 test_df = test_df[(test_df["No Finding"] == 1) | (test_df["Pneumonia"] == 1)]
 
 # balance the dataset
-train_df = balance_dataset(train_df, "Pneumonia", args.train_data_percentage)
+train_df = balance_dataset(train_df, "Pneumonia", args.train_data_percentage, args.train_vindr_percentage)
 val_df = balance_dataset(val_df, "Pneumonia")
 test_df = balance_dataset(test_df, "Pneumonia")
 
