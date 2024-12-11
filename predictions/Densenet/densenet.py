@@ -49,7 +49,12 @@ PATH_TO_DATA = os.path.join(current_dir, "data")
 if args.dataset == "MIMIC":
     data_path = os.path.join(PATH_TO_DATA, "MIMIC-v1.0-512")
     results_path = os.path.join(args.save_path, "MIMIC-v1.0-512")
-
+elif args.dataset == "CheXpert":
+    data_path = os.path.join(PATH_TO_DATA, "CheXpert-v1.0-small")
+    results_path = os.path.join(args.save_path, "CheXpert-v1.0-small")
+elif args.dataset == "VinDr":
+    data_path = os.path.join(PATH_TO_DATA, "VinDr-CXR")
+    results_path = os.path.join(args.save_path, "VinDr-CXR")
 
 
 if not os.path.exists(results_path):
