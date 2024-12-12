@@ -37,11 +37,20 @@ parser.add_argument("--train_vindr_percentage", action="store_true", help="Perce
 
 args = parser.parse_args()
 
-wandb.init(
-    project="MedImageInsights_3",
-    group=f"{args.dataset}-DenseNet",
-    name="DenseNet",
-)
+#DEBUG
+
+if args.train_vindr_percentage:
+    wandb.init(
+        project="MedImageInsights_3",
+        group=f"{args.dataset}-DenseNet",
+        name="DenseNet_VinDR_split",
+    )
+else:
+    wandb.init(
+        project="MedImageInsights_3",
+        group=f"{args.dataset}-DenseNet",
+        name="DenseNet",
+    )
 
 
 PATH_TO_DATA = os.path.join(current_dir, "data")
@@ -81,6 +90,11 @@ test_dataset = PneumoniaDataset(test_df, PATH_TO_DATA, transform=transform)
 train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
 val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
+
+print(f"Train dataset size: {len(train_dataset)}")
+print(f"Validation dataset size: {len(val_dataset)}")
+print(f"Test dataset size: {len(test_dataset)}")
+
 
 # Model definition
 model = models.densenet121(pretrained=True)
@@ -145,6 +159,9 @@ def train(model, train_loader, val_loader, num_epochs, criterion, optimizer, sav
         wandb.log({"Train Loss": train_loss, "Train Accuracy": train_acc, "Validation Loss": val_loss, "Validation Accuracy": val_acc})
         
         scheduler.step(val_loss)
+        current_lr = optimizer.param_groups[0]['lr']
+        wandb.log({"learning_rate": current_lr})
+        print(f"Current learning rate: {current_lr}")
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
