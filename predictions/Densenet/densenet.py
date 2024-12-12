@@ -43,13 +43,13 @@ if args.train_vindr_percentage:
     wandb.init(
         project="MedImageInsights_3",
         group=f"{args.dataset}-DenseNet",
-        name="DenseNet_VinDR_split",
+        name="DenseNet_VinDR_split"+str(args.train_data_percentage),
     )
 else:
     wandb.init(
         project="MedImageInsights_3",
         group=f"{args.dataset}-DenseNet",
-        name="DenseNet",
+        name="DenseNet"+str(args.train_data_percentage),
     )
 
 
