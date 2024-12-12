@@ -9,33 +9,38 @@ import os
 import sys
 import torch
 from sklearn.metrics.pairwise import cosine_similarity
-sys.path.append("/mnt/data2/datasets_lfay/MedImageInsights/predictions")
-from utils import read_image, zero_shot_prediction, extract_findings_and_impressions, create_wandb_run_name, chest_xray_augmentations, augment_image_to_base64, select_confident_samples
 import sys
 import wandb
 from tqdm import tqdm
-sys.path.append("/mnt/data2/datasets_lfay/MedImageInsights")
+current_dir = os.getcwd()
+current_dir = current_dir + "/MedImageInsights"
+sys.path.append(current_dir)
 from MedImageInsight.medimageinsightmodel import MedImageInsight
+current_dir_pred = current_dir + "/predictions"
+sys.path.append(current_dir_pred)
+from utils import read_image, zero_shot_prediction, extract_findings_and_impressions, create_wandb_run_name, chest_xray_augmentations, augment_image_to_base64, select_confident_samples
 import argparse
 from PIL import Image, ImageOps
 
 # Read arguments
 parser = argparse.ArgumentParser(description="Extract findings and impressions from radiology reports.")
 parser.add_argument("--dataset", type=str, default="MIMIC", help="Dataset to use (MIMIC, CheXpert, VinDR)")
-parser.add_argument("--save_path", type=str, default="/mnt/data2/datasets_lfay/MedImageInsights/Results/", help="Path to save the results")
+parser.add_argument("--save_path", type=str, default=current_dir+"/Results/", help="Path to save the results")
 parser.add_argument("--disease", type=str, default="Pneumonia", help="Disease to analyze")
 parser.add_argument("--single_disease", action="store_true", help="Filter reports for single disease occurrence")
 parser.add_argument("--only_no_finding", action="store_true", help="Filter reports for 'No Finding' samples")
 parser.add_argument("--nr_reports_per_disease", type=int, default=10, help="Number of reports to sample per disease")
 args = parser.parse_args()
 
-PATH_TO_DATA = "/mnt/data2/datasets_lfay/MedImageInsights/data"
+PATH_TO_DATA = current_dir+"/data"
 
-run_name = create_wandb_run_name(args, experiment_type="vte")
 args.only_no_finding = True
 args.single_disease = False
 
 save_path = args.save_path + args.dataset + "/" + run_name + "/"
+
+run_name = create_wandb_run_name(args, experiment_type="vte")
+
 if not os.path.exists(save_path):
     os.makedirs(save_path)
 # Initialize wandb
@@ -67,7 +72,7 @@ elif args.dataset == "VinDR":
 
 ## Initialize model
 classifier = MedImageInsight(
-    model_dir="/mnt/data2/datasets_lfay/MedImageInsights/MedImageInsight/2024.09.27",
+    model_dir=current_dir+"/MedImageInsight/2024.09.27",
     vision_model_name="medimageinsigt-v1.0.0.pt",
     language_model_name="language_model.pth"
 )
