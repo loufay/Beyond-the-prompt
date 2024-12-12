@@ -62,8 +62,8 @@ elif args.dataset == "CheXpert":
     data_path = os.path.join(PATH_TO_DATA, "CheXpert-v1.0-small")
     results_path = os.path.join(args.save_path, "CheXpert-v1.0-small")
 elif args.dataset == "VinDR":
-    data_path = os.path.join(PATH_TO_DATA, "VinDr-CXR")
-    results_path = os.path.join(args.save_path, "VinDr-CXR")
+    data_path = os.path.join(PATH_TO_DATA, "vindr-pcxr")
+    results_path = os.path.join(args.save_path, "vindr-pcxr")
 
 
 if not os.path.exists(results_path):
