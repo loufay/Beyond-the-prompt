@@ -59,8 +59,8 @@ if args.dataset == "MIMIC":
     data_path = os.path.join(PATH_TO_DATA, "MIMIC-v1.0-512")
     results_path = os.path.join(args.save_path, "MIMIC-v1.0-512")
 elif args.dataset == "CheXpert":
-    data_path = os.path.join(PATH_TO_DATA, "CheXpert-v1.0-small")
-    results_path = os.path.join(args.save_path, "CheXpert-v1.0-small")
+    data_path = os.path.join(PATH_TO_DATA, "CheXpert-v1.0-512")
+    results_path = os.path.join(args.save_path, "CheXpert-v1.0-512")
 elif args.dataset == "VinDR":
     data_path = os.path.join(PATH_TO_DATA, "vindr-pcxr")
     results_path = os.path.join(args.save_path, "vindr-pcxr")
