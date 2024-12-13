@@ -64,6 +64,12 @@ def create_wandb_run_name(args, experiment_type="report"):
             args.dataset,                        # Dataset being analyzed
             "mlp"   # Number of reports per disease
         ]  
+    elif experiment_type == "linear_probe":
+        # Base name components
+        name_parts = [
+            args.dataset,                        # Dataset being analyzed
+            "linear_probe"   # Number of reports per disease
+        ]  
     elif experiment_type == "vte":
         # Base name components
         name_parts = [
