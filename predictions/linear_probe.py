@@ -111,9 +111,9 @@ def balance_dataset(df, disease_column):
 
 
 
-df_train_balanced = balance_dataset(df_train, "Pneumonia")
+df_train_balanced = balance_dataset(df_train, "Pneumonia", args.train_data_percentage, args.train_vindr_percentage)
 df_val_balanced = balance_dataset(df_val, "Pneumonia")
-df_test_balanced = balance_dataset(df_test, "Pneumonia", args.train_data_percentage, args.train_vindr_percentage)
+df_test_balanced = balance_dataset(df_test, "Pneumonia")
 
 print(f"Train: {len(df_train_balanced)} samples")
 print(f"Val: {len(df_val_balanced)} samples")
