@@ -20,7 +20,7 @@ from model.adapter_training import (
     load_trained_model,
     perform_inference,
 )
-from utils import create_wandb_run_name
+from utils import create_wandb_run_name, balance_dataset
 current_dir = os.getcwd()
 current_dir = current_dir + "/MedImageInsights"
 sys.path.append(current_dir)
@@ -93,21 +93,7 @@ df_train = pd.read_csv(os.path.join(data_path, "train.csv"))
 df_val = pd.read_csv(os.path.join(data_path, "val.csv"))
 df_test = pd.read_csv(os.path.join(data_path, "test.csv"))
 
-# Balance datasets
-def balance_dataset(df, disease_column):
-    positive_count = df[disease_column].sum()
 
-    if args.only_no_finding:
-        balanced_df = pd.concat([
-            df[df[disease_column] == 1].sample(n=int(positive_count), random_state=42),
-            df[df["No Finding"] == 1].sample(n=int(positive_count), random_state=42)
-        ])
-    else:
-        balanced_df = pd.concat([
-            df[df[disease_column] == 0].sample(n=int(positive_count), random_state=42),
-            df[df[disease_column] == 1]
-        ])
-    return balanced_df
 
 
 
