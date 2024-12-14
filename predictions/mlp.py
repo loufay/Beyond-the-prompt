@@ -87,7 +87,7 @@ df_val = pd.read_csv(os.path.join(data_path, "val.csv"))
 df_test = pd.read_csv(os.path.join(data_path, "test.csv"))
 
 
-df_train_balanced = balance_dataset(train_df, "Pneumonia", args.train_data_percentage, args.train_vindr_percentage)
+df_train_balanced = balance_dataset(df_train, "Pneumonia", args.train_data_percentage, args.train_vindr_percentage)
 df_val_balanced = balance_dataset(df_val, "Pneumonia")
 df_test_balanced = balance_dataset(df_test, "Pneumonia")
 

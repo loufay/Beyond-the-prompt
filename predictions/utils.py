@@ -62,8 +62,10 @@ def create_wandb_run_name(args, experiment_type="report"):
         # Base name components
         name_parts = [
             args.dataset,                        # Dataset being analyzed
-            "mlp"   # Number of reports per disease
-        ]  
+            "mlp",   # Number of reports per disease
+            str(args.train_data_percentage)]
+        if args.train_vindr_percentage:
+            name_parts.append("vindr_split")  
     elif experiment_type == "linear_probe":
         # Base name components
         name_parts = [
