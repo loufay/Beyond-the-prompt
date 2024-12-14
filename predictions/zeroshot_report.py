@@ -13,7 +13,9 @@ from utils import read_image, zero_shot_prediction, extract_findings_and_impress
 import sys
 import wandb
 from tqdm import tqdm
-sys.path.append("/mnt/data2/datasets_lfay/MedImageInsights")
+current_dir = os.getcwd()
+current_dir = current_dir + "/MedImageInsights"
+sys.path.append(current_dir)
 from MedImageInsight.medimageinsightmodel import MedImageInsight
 import argparse
 
@@ -24,14 +26,14 @@ parser.add_argument("--compare_to_mimic", action="store_true", help="Compare to 
 parser.add_argument("--findings_only", action="store_true", help="Extract only the findings section")
 parser.add_argument("--impression_only", action="store_true", help="Extract only the impression section")
 parser.add_argument("--combined", action="store_true", help="Combine findings and impressions")
-parser.add_argument("--save_path", type=str, default="/mnt/data2/datasets_lfay/MedImageInsights/Results/", help="Path to save the results")
+parser.add_argument("--save_path", type=str, default=current_dir+"/Results/", help="Path to save the results")
 parser.add_argument("--disease", type=str, default="Pneumonia", help="Disease to analyze")
 parser.add_argument("--single_disease", action="store_true", help="Filter reports for single disease occurrence")
 parser.add_argument("--only_no_finding", action="store_true", help="Filter reports for 'No Finding' samples")
 parser.add_argument("--nr_reports_per_disease", type=int, default=10, help="Number of reports to sample per disease")
 args = parser.parse_args()
 
-PATH_TO_DATA = "/mnt/data2/datasets_lfay/MedImageInsights/data"
+PATH_TO_DATA = os.path.join(current_dir, "data")
 
 ##DEBUG
 
@@ -162,7 +164,7 @@ print(f"Number of {args.disease} Images: {len(finding_samples_test)}")
 
 ## 3. Initialize model
 classifier = MedImageInsight(
-    model_dir="/mnt/data2/datasets_lfay/MedImageInsights/MedImageInsight/2024.09.27",
+    model_dir=current_dir+"/MedImageInsight/2024.09.27",
     vision_model_name="medimageinsigt-v1.0.0.pt",
     language_model_name="language_model.pth"
 )
