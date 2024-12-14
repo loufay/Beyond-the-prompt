@@ -43,7 +43,7 @@ args.only_no_finding = True
 run_name = create_wandb_run_name(args, "linear_probe")
 # Initialize W&B
 wandb.init(
-    project="MedImageInsights_3",
+    project="MedImageInsights_4",
     group=f"{args.dataset}-AdapterFT",
     name=run_name,
 )
