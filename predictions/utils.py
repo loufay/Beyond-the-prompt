@@ -56,8 +56,12 @@ def create_wandb_run_name(args, experiment_type="report"):
         name_parts = [
             args.dataset,                        # Dataset being analyzed
             str(args.k_neighbors),                          # Always include 'zeroshot' to identify the experiment type
-            "knn"   # Number of reports per disease
-        ]
+            "knn",   # Number of reports per disease
+            str(args.train_data_percentage)]
+
+        if args.train_vindr_percentage:
+            name_parts.append("vindr_split")  
+
     elif experiment_type in ["mlp", "linear_probe", "lora"]:
         # Base name components
         name_parts = [
