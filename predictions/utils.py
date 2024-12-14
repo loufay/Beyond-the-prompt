@@ -58,23 +58,14 @@ def create_wandb_run_name(args, experiment_type="report"):
             str(args.k_neighbors),                          # Always include 'zeroshot' to identify the experiment type
             "knn"   # Number of reports per disease
         ]
-    elif experiment_type == "mlp":
+    elif experiment_type in ["mlp", "linear_probe", "lora"]:
         # Base name components
         name_parts = [
             args.dataset,                        # Dataset being analyzed
-            "mlp",   # Number of reports per disease
+            experiment_type,   # Number of reports per disease
             str(args.train_data_percentage)]
         if args.train_vindr_percentage:
             name_parts.append("vindr_split")  
-    elif experiment_type == "linear_probe":
-        # Base name components
-        name_parts = [
-            args.dataset,                        # Dataset being analyzed
-            "linear_probe",   # Number of reports per disease
-            str(args.train_data_percentage)
-        ]
-        if args.train_vindr_percentage:
-            name_parts.append("vindr_split")
 
     elif experiment_type == "vte":
         # Base name components
@@ -82,16 +73,6 @@ def create_wandb_run_name(args, experiment_type="report"):
             args.dataset,                        # Dataset being analyzed
             "vte"   # Number of reports per disease
         ]
-    
-    elif experiment_type == "lora":
-        # Base name components
-        name_parts = [
-            args.dataset,                        # Dataset being analyzed
-            "lora", # Number of reports per disease
-            str(args.train_data_percentage)
-        ]
-        if args.train_vindr_percentage:
-            name_parts.append("vindr_split")
 
     else:
         # Base name components
