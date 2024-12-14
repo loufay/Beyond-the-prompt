@@ -197,3 +197,8 @@ data/MIMIC-v1.0-512/val.csv
 data/vindr-pcxr/test.csv
 data/vindr-pcxr/train.csv
 data/vindr-pcxr/val.csv
+predictions/dataset/__pycache__/PneumoniaDataset.cpython-38.pyc
+predictions/dataset/__pycache__/PneumoniaModel.cpython-38.pyc
+predictions/dataset/__pycache__/PneumoniaDataset.cpython-38.pyc
+predictions/dataset/__pycache__/PneumoniaModel.cpython-38.pyc
+predictions/__pycache__/utils.cpython-38.pyc
