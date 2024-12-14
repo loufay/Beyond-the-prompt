@@ -21,7 +21,7 @@ import argparse
 
 # Read arguments
 parser = argparse.ArgumentParser(description="Extract findings and impressions from radiology reports.")
-parser.add_argument("--dataset", type=str, default="MIMIC", help="Dataset to use (MIMIC, CheXpert, VinDR)")
+parser.add_argument("--dataset", type=str, default="VinDR", help="Dataset to use (MIMIC, CheXpert, VinDR)")
 parser.add_argument("--compare_to_mimic", action="store_true", help="Compare to MIMIC reports")
 parser.add_argument("--findings_only", action="store_true", help="Extract only the findings section")
 parser.add_argument("--impression_only", action="store_true", help="Extract only the impression section")
@@ -36,6 +36,9 @@ args = parser.parse_args()
 PATH_TO_DATA = os.path.join(current_dir, "data")
 
 ##DEBUG
+args.findings_only = True
+args.only_no_finding = True
+args.compare_to_mimic = True
 
 # Set options
 findings_only = args.findings_only
@@ -75,6 +78,11 @@ elif args.dataset == "VinDR":
     diseases = ['No Finding', 'Bronchitis', 'Brocho-pneumonia', 'Other disease', 'Bronchiolitis', 'Situs inversus', 'Pneumonia', 'Pleuro-pneumonia', 'Diagphramatic hernia', 'Tuberculosis', 'Congenital emphysema', 'CPAM', 'Hyaline membrane disease', 'Mediastinal tumor', 'Lung tumor']
     read_path = PATH_TO_DATA+"/vindr-pcxr/"
 
+    diseases_mimic = ['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
+            'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
+            'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture',
+            'Support Devices']
+
 if args.compare_to_mimic:
     read_path_mimic = PATH_TO_DATA+"/MIMIC-v1.0-512/"
     df_train = pd.read_csv(read_path_mimic + "train.csv")
@@ -93,7 +101,10 @@ else:
 
 # Filter test data for 'No Finding' samples or anything can be true as long as args.disease is false
 if args.only_no_finding:
-    no_finding_samples_train = df_train[(df_train['No Finding'] == 1) & (df_train[diseases[1:]]== 0).all(axis=1)]
+    if args.compare_to_mimic:
+        no_finding_samples_train = df_train[(df_train['No Finding'] == 1) & (df_train[diseases_mimic[1:]]== 0).all(axis=1)]
+    else:
+        no_finding_samples_train = df_train[(df_train['No Finding'] == 1) & (df_train[diseases[1:]]== 0).all(axis=1)]
     no_finding_samples_train = no_finding_samples_train.sample(len(finding_samples_train), random_state=42)
     no_disease = "No Finding"
 else:

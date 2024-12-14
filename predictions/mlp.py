@@ -19,7 +19,7 @@ from model.adapter_training import (
     load_trained_model,
     perform_inference,
 )
-from utils import create_wandb_run_name
+from utils import create_wandb_run_name, balance_dataset
 
 # Argument Parsing
 parser = argparse.ArgumentParser(description="Adapter fine-tuning using MLP.")
@@ -27,6 +27,8 @@ parser.add_argument("--dataset", type=str, default="MIMIC", help="Dataset to use
 parser.add_argument("--save_path", type=str, default="/mnt/data2/datasets_lfay/MedImageInsights/Results/", help="Path to save the results")
 parser.add_argument("--only_no_finding", action="store_true", help="Filter reports for 'No Finding' samples")
 parser.add_argument("--single_disease", action="store_true", help="Filter reports for single disease occurrence")
+parser.add_argument("--train_data_percentage", type=float, default=1.0, help="Percentage of training data to use")
+parser.add_argument("--train_vindr_percentage", action="store_true", help="Percentage of training data to use")
 args = parser.parse_args()
 
 bias_variables = None
@@ -84,25 +86,8 @@ df_train = pd.read_csv(os.path.join(data_path, "train.csv"))
 df_val = pd.read_csv(os.path.join(data_path, "val.csv"))
 df_test = pd.read_csv(os.path.join(data_path, "test.csv"))
 
-# Balance datasets
-def balance_dataset(df, disease_column):
-    positive_count = df[disease_column].sum()
 
-    if args.only_no_finding:
-        balanced_df = pd.concat([
-            df[df[disease_column] == 1].sample(n=int(positive_count), random_state=42),
-            df[df["No Finding"] == 1].sample(n=int(positive_count), random_state=42)
-        ])
-    else:
-        balanced_df = pd.concat([
-            df[df[disease_column] == 0].sample(n=int(positive_count), random_state=42),
-            df[df[disease_column] == 1]
-        ])
-    return balanced_df
-
-
-
-df_train_balanced = balance_dataset(df_train, "Pneumonia")
+df_train_balanced = balance_dataset(train_df, "Pneumonia", args.train_data_percentage, args.train_vindr_percentage)
 df_val_balanced = balance_dataset(df_val, "Pneumonia")
 df_test_balanced = balance_dataset(df_test, "Pneumonia")
 
