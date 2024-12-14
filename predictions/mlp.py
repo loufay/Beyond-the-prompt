@@ -37,10 +37,11 @@ args = parser.parse_args()
 
 bias_variables = None
 # DEBUG
+
 run_name = create_wandb_run_name(args, "mlp")
 # Initialize W&B
 wandb.init(
-    project="MedImageInsights_3",
+    project="MedImageInsights_4",
     group=f"{args.dataset}-AdapterFT",
     name=run_name,
 )
@@ -90,10 +91,17 @@ df_train = pd.read_csv(os.path.join(data_path, "train.csv"))
 df_val = pd.read_csv(os.path.join(data_path, "val.csv"))
 df_test = pd.read_csv(os.path.join(data_path, "test.csv"))
 
+df_train = df_train[(df_train["No Finding"] == 1) | (df_train["Pneumonia"] == 1)]
+df_val = df_val[(df_val["No Finding"] == 1) | (df_val["Pneumonia"] == 1)]
+df_test = df_test[(df_test["No Finding"] == 1) | (df_test["Pneumonia"] == 1)]
 
 df_train_balanced = balance_dataset(df_train, "Pneumonia", args.train_data_percentage, args.train_vindr_percentage)
 df_val_balanced = balance_dataset(df_val, "Pneumonia")
 df_test_balanced = balance_dataset(df_test, "Pneumonia")
+
+print(f"Train: {len(df_train_balanced)} samples")
+print(f"Validation: {len(df_val_balanced)} samples")
+print(f"Test: {len(df_test_balanced)} samples")
 
 # Prepare samples
 def prepare_samples(df, feature_columns):
