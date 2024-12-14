@@ -11,19 +11,22 @@ from sklearn.metrics import confusion_matrix, roc_auc_score, accuracy_score
 from tqdm import tqdm
 import wandb
 from utils import read_image, create_wandb_run_name, calculate_subgroup_metrics
-sys.path.append("/mnt/data2/datasets_lfay/MedImageInsights")
+current_dir = os.getcwd()
+current_dir = current_dir + "/MedImageInsights"
+sys.path.append(current_dir)
+
 from MedImageInsight.medimageinsightmodel import MedImageInsight
 
 # Argument Parsing
 parser = argparse.ArgumentParser(description="Extract findings and impressions from radiology reports.")
 parser.add_argument("--dataset", type=str, default="CheXpert", help="Dataset to use (MIMIC, CheXpert, VinDR)")
-parser.add_argument("--save_path", type=str, default="/mnt/data2/datasets_lfay/MedImageInsights/Results/", help="Path to save the results")
+parser.add_argument("--save_path", type=str, default=current_dir+"/Results/", help="Path to save the results")
 parser.add_argument("--disease", type=str, default="Pneumonia", help="Disease to analyze")
 parser.add_argument("--single_disease", action="store_true", help="Filter reports for single disease occurrence")
 parser.add_argument("--only_no_finding", action="store_true", help="Filter reports for 'No Finding' samples")
 args = parser.parse_args()
 
-PATH_TO_DATA = "/mnt/data2/datasets_lfay/MedImageInsights/data"
+PATH_TO_DATA = os.path.join(current_dir, "data")
 
 # Generate unique run name
 base_run_name = create_wandb_run_name(args, "zeroshot")
@@ -89,7 +92,7 @@ filtered_test_images = pd.concat([no_finding_samples_test, finding_samples_test]
 
 # Initialize Model
 classifier = MedImageInsight(
-    model_dir="/mnt/data2/datasets_lfay/MedImageInsights/MedImageInsight/2024.09.27",
+    model_dir=current_dir+ "/MedImageInsight/2024.09.27",
     vision_model_name="medimageinsigt-v1.0.0.pt",
     language_model_name="language_model.pth"
 )
