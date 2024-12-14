@@ -19,12 +19,16 @@ from model.adapter_training import (
     load_trained_model,
     perform_inference,
 )
+import sys
 from utils import create_wandb_run_name, balance_dataset
+current_dir = os.getcwd()
+current_dir = current_dir + "/MedImageInsights"
+sys.path.append(current_dir)
 
 # Argument Parsing
 parser = argparse.ArgumentParser(description="Adapter fine-tuning using MLP.")
 parser.add_argument("--dataset", type=str, default="MIMIC", help="Dataset to use (MIMIC, CheXpert, VinDR)")
-parser.add_argument("--save_path", type=str, default="/mnt/data2/datasets_lfay/MedImageInsights/Results/", help="Path to save the results")
+parser.add_argument("--save_path", type=str, default=current_dir+"/Results/", help="Path to save the results")
 parser.add_argument("--only_no_finding", action="store_true", help="Filter reports for 'No Finding' samples")
 parser.add_argument("--single_disease", action="store_true", help="Filter reports for single disease occurrence")
 parser.add_argument("--train_data_percentage", type=float, default=1.0, help="Percentage of training data to use")
@@ -42,7 +46,7 @@ wandb.init(
 )
 
 # Dataset-specific configurations
-PATH_TO_DATA = "/mnt/data2/datasets_lfay/MedImageInsights/data"
+PATH_TO_DATA = current_dir+"/data"
 output_dir = os.path.join(args.save_path, f"{args.dataset}-AdapterFT", f"{wandb.run.group}_{wandb.run.name}")
 os.makedirs(output_dir, exist_ok=True)
 
