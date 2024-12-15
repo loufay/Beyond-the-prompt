@@ -30,6 +30,8 @@ parser.add_argument("--disease", type=str, default="Pneumonia", help="Disease to
 parser.add_argument("--single_disease", action="store_true", help="Filter reports for single disease occurrence")
 parser.add_argument("--only_no_finding", action="store_true", help="Filter reports for 'No Finding' samples")
 parser.add_argument("--nr_reports_per_disease", type=int, default=10, help="Number of reports to sample per disease")
+parser.add_argument("--image_processing", type=str, default="avg_confidence", help="Image processing method [original, avg_all, avg_confidence]")
+parser.add_argument("--text_processing", type=str, default="all", help="Text processing method [all, prompts_only, reports_only]")
 args = parser.parse_args()
 
 PATH_TO_DATA = current_dir+"/data"
@@ -37,15 +39,16 @@ PATH_TO_DATA = current_dir+"/data"
 args.only_no_finding = True
 args.single_disease = False
 
-save_path = args.save_path + args.dataset + "/" + run_name + "/"
 
 run_name = create_wandb_run_name(args, experiment_type="vte")
+save_path = args.save_path + args.dataset + "/" + run_name + "/"
+
 
 if not os.path.exists(save_path):
     os.makedirs(save_path)
 # Initialize wandb
 wandb.init(
-    project="MedImageInsights_3",
+    project="MedImageInsights_4",
     group=f"{args.dataset}-VTE",
     name=run_name,
 )
@@ -79,17 +82,14 @@ classifier = MedImageInsight(
 classifier.load_model()
 
 ##  EMBEDDINGS
-
-
 # Load images
 df_test = pd.read_csv(read_path + "test.csv")
 # shuffle df_test
 df_test = df_test.sample(frac=1, random_state=42).reset_index(drop=True)
 
-print(df_test[args.disease].value_counts())
 # balance dataset to have equal number of positive and negative samples 
 sample_size = min(df_test[args.disease].value_counts().values)
-sample_size = 50
+# sample_size = 10
 if args.only_no_finding:
     df_test_no_finding = df_test[df_test["No Finding"] == 1].sample(n=sample_size, random_state=42)
     # Load text embeddings
@@ -110,7 +110,12 @@ else:
     df_test_disease = df_test[df_test[args.disease] == 1].sample(n=sample_size, random_state=42)
     averaged_text_embeddings = np.load(f"{PATH_TO_DATA}/text_embeddings/average_embeddings_2_single_pneumonia_no_finding.npy")
 
+print(len(df_test_no_finding))
+print(len(df_test_disease))
+
 df_test = pd.concat([df_test_no_finding, df_test_disease])
+print(f"Test dataset size: {len(df_test)}")
+
 all_predictions = []
 all_true_labels = []
 
@@ -164,7 +169,7 @@ for idx, row in tqdm(df_test.iterrows(),total=len(df_test), desc="Zeroshot perfo
 # Compute metrics
 conf_matrix = confusion_matrix(all_true_labels, all_predictions)
 accuracy = accuracy_score(all_true_labels, all_predictions)
-roc_auc = roc_auc_score(all_true_labels, all_predictions)
+#roc_auc = roc_auc_score(all_true_labels, all_predictions)
 
 # Log metrics to W&B
 plt.figure(figsize=(8, 6))
@@ -183,12 +188,10 @@ per_class_accuracy = conf_matrix.diagonal() / conf_matrix.sum(axis=1)
 
 print(f"Overall Accuracy: {accuracy}")
 print(f"Confusion Matrix:\n{conf_matrix}")
-print(f"ROC AUC: {roc_auc}")
 
 # Save results
 wandb.log({
     "test_accuracy": accuracy,
-    "test_roc_auc": roc_auc,
     "confusion_matrix": wandb.Image(f"{save_path}confusion_matrix_test.png"),
 })
 

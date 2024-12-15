@@ -75,7 +75,9 @@ def create_wandb_run_name(args, experiment_type="report"):
         # Base name components
         name_parts = [
             args.dataset,                        # Dataset being analyzed
-            "vte"   # Number of reports per disease
+            "vte",
+            args.image_processing,
+            args.text_processing
         ]
 
     else:
