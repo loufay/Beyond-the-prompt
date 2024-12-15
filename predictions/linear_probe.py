@@ -37,8 +37,6 @@ args = parser.parse_args()
 
 bias_variables = None
 
-args.only_no_finding = True
-
 # DEBUG
 run_name = create_wandb_run_name(args, "linear_probe")
 # Initialize W&B

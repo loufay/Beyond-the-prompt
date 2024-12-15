@@ -10,7 +10,7 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix, roc_auc_score, accuracy_score
 from tqdm import tqdm
 import wandb
-from utils import read_image, create_wandb_run_name, calculate_subgroup_metrics
+from utils import read_image, create_wandb_run_name, calculate_subgroup_metrics, balance_dataset
 current_dir = os.getcwd()
 current_dir = current_dir + "/MedImageInsights"
 sys.path.append(current_dir)
@@ -79,16 +79,17 @@ else:
 
 # Filter test data for 'No Finding' samples or anything can be true as long as args.disease is false
 if args.only_no_finding:
-    no_finding_samples_test = df_test[
-        (df_test['No Finding'] == 1) & (df_test[diseases[1:]] == 0).all(axis=1)
-    ].sample(len(finding_samples_test), random_state=42)
+    df_train = df_train[(df_train["No Finding"] == 1) | (df_train["Pneumonia"] == 1)]
+    df_test = df_test[(df_test["No Finding"] == 1) | (df_test["Pneumonia"] == 1)]
+
     no_disease = "No Finding"
 else:
     no_finding_samples_test = df_test[df_test[args.disease] == 0].sample(len(finding_samples_test), random_state=42)
     no_disease = "No "+args.disease
 
+df_test_balanced = balance_dataset(df_test, "Pneumonia")
 
-filtered_test_images = pd.concat([no_finding_samples_test, finding_samples_test], ignore_index=True)
+#filtered_test_images = pd.concat([no_finding_samples_test, finding_samples_test], ignore_index=True)
 
 # Initialize Model
 classifier = MedImageInsight(
@@ -102,7 +103,7 @@ classifier.model.eval()
 # Encode Images
 images = [
     base64.encodebytes(read_image(PATH_TO_DATA + row["Path"])).decode("utf-8")
-    for _, row in filtered_test_images.iterrows()
+    for _, row in df_test_balanced.iterrows()
 ]
 
 # Perform Zero-Shot Predictions
@@ -114,7 +115,7 @@ for add_on in add_ons:
     # Start a new W&B run for each add_on
     run_name = f"{base_run_name}_{add_on.strip().replace(' ', '_')}"
     wandb.init(
-        project="MedImageInsights_3",
+        project="MedImageInsights_4",
         group=f"{args.dataset}-ZeroShot",
         name=run_name,
         reinit=True
@@ -127,7 +128,7 @@ for add_on in add_ons:
 
     ground_truth = []
     all_predictions = []
-    for _, row in filtered_test_images.iterrows():
+    for _, row in df_test_balanced.iterrows():
         #labels_dict = {disease: row[disease[len(add_on):]] for disease in prompt_diseases}
         labels_dict = {
             prompt_diseases[0]: int(row[args.disease] == 0),
@@ -136,8 +137,10 @@ for add_on in add_ons:
         ground_truth.append(labels_dict)
 
     # Print dataset statistics
-    print(f"Number of {no_disease} Images: {len(no_finding_samples_test)}")
-    print(f"Number of {args.disease} Images: {len(finding_samples_test)}")
+    # print(f"Number of {no_disease} Images: {len(no_finding_samples_test)}")
+    # print(f"Number of {args.disease} Images: {len(finding_samples_test)}")
+    print(f"Number of {no_disease} Images: {len(df_test_balanced[df_test_balanced[args.disease] == 0])}")
+    print(f"Number of {args.disease} Images: {len(df_test_balanced[df_test_balanced[args.disease] == 1])}")
 
     for start_idx in tqdm(range(0, num_images, chunk_size), desc="Zero-shot prediction"):
         end_idx = min(start_idx + chunk_size, num_images)
@@ -211,7 +214,7 @@ for add_on in add_ons:
             print(f"Evaluating bias for {variable}")
 
             # Extract ground truth and predictions
-            y_true = [int(row[args.disease]) for _, row in filtered_test_images.iterrows()]
+            y_true = [int(row[args.disease]) for _, row in df_test_balanced.iterrows()]
             y_prob = [pred[prompt_diseases[1]] for pred in all_predictions]  # Probability for 'Pneumonia'
             y_pred = [1 if prob > 0.5 else 0 for prob in y_prob]  # Binary predictions
 

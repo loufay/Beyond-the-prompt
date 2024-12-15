@@ -36,9 +36,9 @@ args = parser.parse_args()
 PATH_TO_DATA = os.path.join(current_dir, "data")
 
 ##DEBUG
-args.findings_only = True
-args.only_no_finding = True
-args.compare_to_mimic = True
+# args.findings_only = True
+# args.only_no_finding = True
+# args.compare_to_mimic = True
 
 # Set options
 findings_only = args.findings_only
