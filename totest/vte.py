@@ -89,11 +89,18 @@ df_test = df_test.sample(frac=1, random_state=42).reset_index(drop=True)
 
 # balance dataset to have equal number of positive and negative samples 
 sample_size = min(df_test[args.disease].value_counts().values)
-# sample_size = 10
+#sample_size = 10
 if args.only_no_finding:
     df_test_no_finding = df_test[df_test["No Finding"] == 1].sample(n=sample_size, random_state=42)
     # Load text embeddings
-    averaged_text_embeddings = np.load(f"{PATH_TO_DATA}/text_embeddings/average_embeddings_2_no_finding.npy")
+    if args.text_processing == "all":
+        averaged_text_embeddings = np.load(f"{PATH_TO_DATA}/text_embeddings/average_embeddings_2_no_finding.npy")
+    elif args.text_processing == "prompts_only":
+        averaged_text_embeddings = np.load(f"{PATH_TO_DATA}/text_embeddings/average_embeddings_2_no_finding_template.npy")
+    elif args.text_processing == "reports_only":
+        averaged_text_embeddings = np.load(f"{PATH_TO_DATA}/text_embeddings/average_embeddings_2_no_finding_report.npy")
+
+    #averaged_text_embeddings = np.load(f"{PATH_TO_DATA}/text_embeddings/average_embeddings_2_no_finding.npy")
 else:
     df_test_no_finding = df_test[df_test[args.disease] == 0].sample(n=sample_size, random_state=42)
     # Load text embeddings
@@ -108,7 +115,7 @@ if args.single_disease:
 
 else:
     df_test_disease = df_test[df_test[args.disease] == 1].sample(n=sample_size, random_state=42)
-    averaged_text_embeddings = np.load(f"{PATH_TO_DATA}/text_embeddings/average_embeddings_2_single_pneumonia_no_finding.npy")
+   # averaged_text_embeddings = np.load(f"{PATH_TO_DATA}/text_embeddings/average_embeddings_2_single_pneumonia_no_finding.npy")
 
 print(len(df_test_no_finding))
 print(len(df_test_disease))
@@ -123,7 +130,10 @@ for idx, row in tqdm(df_test.iterrows(),total=len(df_test), desc="Zeroshot perfo
     path_to_img =PATH_TO_DATA+row["Path"]
     img = Image.open(path_to_img).convert("L")
     # Create augmented image views and encode to base64
-    aug_image_base64_list = augment_image_to_base64(img, num_views=63)
+    if args.image_processing == "original":
+        aug_image_base64_list = augment_image_to_base64(img, num_views=0)
+    else:
+        aug_image_base64_list = augment_image_to_base64(img, num_views=63)
     # Extract image embeddings
     augmented_image_embeddings = classifier.encode(images=aug_image_base64_list)["image_embeddings"]
 
@@ -132,13 +142,19 @@ for idx, row in tqdm(df_test.iterrows(),total=len(df_test), desc="Zeroshot perfo
     logits = torch.tensor(similarities, dtype=torch.float32)
 
     # Select the top 10% most confident samples
-    top_confidence_ratio = 0.1  # 10%
-    #top_confidence_ratio = 1
+    if args.image_processing == "avg_confidence":
+        top_confidence_ratio = 0.1
+    else:
+        top_confidence_ratio = 1
     confident_indices = select_confident_samples(logits, top_confidence_ratio)
 
     # Extract the embeddings of the most confident samples
     filtered_embeddings = augmented_image_embeddings[confident_indices]
-    average_filtered_embedding = filtered_embeddings.mean(axis=0)
+
+    if args.image_processing != "original":
+        average_filtered_embedding = filtered_embeddings.mean(axis=0)
+    else:
+        average_filtered_embedding = filtered_embeddings
 
     ## DEBUG ONLY FOR IMAGE ONLY WITHOUT AUGMENTATION
     # average_filtered_embedding = filtered_embeddings
@@ -163,8 +179,8 @@ for idx, row in tqdm(df_test.iterrows(),total=len(df_test), desc="Zeroshot perfo
     all_predictions.append(y_pred)
     all_true_labels.append(y_true)
 
-    if len(all_predictions) ==100:
-        break
+    # if len(all_predictions) ==100:
+    #     break
 
 # Compute metrics
 conf_matrix = confusion_matrix(all_true_labels, all_predictions)
