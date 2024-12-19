@@ -207,3 +207,5 @@ predictions/Densenet/__pycache__/utils_densenet.cpython-38.pyc
 predictions/Densenet/__pycache__/utils.cpython-38.pyc
 predictions/__pycache__/utils.cpython-38.pyc
 predictions/model/__pycache__/adapter_training.cpython-38.pyc
+predictions/__pycache__/utils.cpython-38.pyc
+predictions/model/__pycache__/adapter_training.cpython-38.pyc

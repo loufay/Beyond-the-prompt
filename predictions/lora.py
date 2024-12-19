@@ -11,7 +11,7 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix, accuracy_score, ConfusionMatrixDisplay, f1_score, recall_score, precision_score, balanced_accuracy_score
 from tqdm import tqdm
 import wandb
-from utils import read_image, create_wandb_run_name, calculate_subgroup_metrics, balance_dataset
+from utils import read_image, create_wandb_run_name, calculate_subgroup_metrics, balance_dataset, evaluate_bias
 current_dir = os.getcwd()
 current_dir = current_dir + "/MedImageInsights"
 sys.path.append(current_dir)
@@ -26,7 +26,7 @@ import wandb
 
 
 parser = argparse.ArgumentParser(description="Adapter fine-tuning using LORA.")
-parser.add_argument("--dataset", type=str, default="MIMIC", help="Dataset to use (MIMIC, CheXpert, VinDR)")
+parser.add_argument("--dataset", type=str, default="CheXpert", help="Dataset to use (MIMIC, CheXpert, VinDR)")
 parser.add_argument("--save_path", type=str, default=current_dir+"/Results/", help="Path to save the results")
 parser.add_argument("--only_no_finding", action="store_true", help="Filter reports for 'No Finding' samples")
 parser.add_argument("--single_disease", action="store_true", help="Filter reports for single disease occurrence")
@@ -40,14 +40,14 @@ run_name = create_wandb_run_name(args, "lora")
 
 # Initialize W&B
 wandb.init(
-    project="MedImageInsights_3",
+    project="MedImageInsights_5",
     group=f"{args.dataset}-LORA",
     name=run_name,
 )
 
 
 PATH_TO_DATA = os.path.join(current_dir, "data")
-
+bias_variables = None
 if args.dataset == "MIMIC":
     data_path = os.path.join(PATH_TO_DATA, "MIMIC-v1.0-512")
     results_path = os.path.join(args.save_path, "MIMIC-v1.0-512")
@@ -55,6 +55,16 @@ if args.dataset == "MIMIC":
 elif args.dataset == "CheXpert":
     data_path = os.path.join(PATH_TO_DATA, "CheXpert-v1.0-512")
     results_path = os.path.join(args.save_path, "CheXpert-v1.0-512")
+    
+    bias_variables = {
+    "sex": {"Female": lambda df: df["sex"] == "Female", "Male": lambda df: df["sex"] == "Male"},
+    "age": {"Young": lambda df: df["age"] <= 62, "Old": lambda df: df["age"] > 62},
+    "race": {
+        "White": lambda df: df["race"] == "White",
+        "Asian": lambda df: df["race"] == "Asian",
+        "Black": lambda df: df["race"] == "Black",
+        },
+    }
 
 elif args.dataset == "VinDR":
     data_path = os.path.join(PATH_TO_DATA, "vindr-pcxr")
@@ -75,6 +85,7 @@ df_test = df_test[(df_test["No Finding"] == 1) | (df_test["Pneumonia"] == 1)]
 df_train = balance_dataset(df_train, "Pneumonia", args.train_data_percentage, args.train_vindr_percentage)
 df_val = balance_dataset(df_val, "Pneumonia")
 df_test = balance_dataset(df_test, "Pneumonia")
+df_test = df_test.reset_index(drop=True)
 
 
 train_dataset = PneumoniaDataset(df=df_train, data_dir=PATH_TO_DATA)
@@ -146,7 +157,7 @@ classifier.model.to(classifier.device)
 
 
 # Define hyperparameters
-num_epochs = 100
+num_epochs = 1000
 patience = 5  # Early stopping patience
 best_val_loss = float('inf')
 early_stop_counter = 0
@@ -298,4 +309,11 @@ plt.title(f"Confusion Matrix: {wandb.run.group}_{wandb.run.name}")
 plt.tight_layout()
 plt.savefig(os.path.join(args.save_path, "test_confusion_matrix.png"))
 wandb.log({"confusion_matrix": wandb.Image(plt)})
+
+
+if bias_variables is not None:
+    evaluate_bias(df_test, test_preds, test_labels, bias_variables)
+
+
+
 wandb.finish()

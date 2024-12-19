@@ -21,7 +21,7 @@ import argparse
 
 # Read arguments
 parser = argparse.ArgumentParser(description="Extract findings and impressions from radiology reports.")
-parser.add_argument("--dataset", type=str, default="VinDR", help="Dataset to use (MIMIC, CheXpert, VinDR)")
+parser.add_argument("--dataset", type=str, default="CheXpert", help="Dataset to use (MIMIC, CheXpert, VinDR)")
 parser.add_argument("--compare_to_mimic", action="store_true", help="Compare to MIMIC reports")
 parser.add_argument("--findings_only", action="store_true", help="Extract only the findings section")
 parser.add_argument("--impression_only", action="store_true", help="Extract only the impression section")
@@ -53,7 +53,7 @@ if not os.path.exists(save_path):
     os.makedirs(save_path)
 # Initialize wandb
 wandb.init(
-    project="MedImageInsights_3",
+    project="MedImageInsights_5",
     group=f"{args.dataset}-Report-ZeroShot",
     name=run_name,
 )
@@ -77,6 +77,16 @@ elif args.dataset == "CheXpert":
         'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
         'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture',
         'Support Devices']
+
+    bias_variables = {
+    "sex": {"Female": lambda df: df["sex"] == "Female", "Male": lambda df: df["sex"] == "Male"},
+    "age": {"Young": lambda df: df["age"] <= 62, "Old": lambda df: df["age"] > 62},
+    "race": {
+        "White": lambda df: df["race"] == "White",
+        "Asian": lambda df: df["race"] == "Asian",
+        "Black": lambda df: df["race"] == "Black",
+        },
+    }
 
 
 elif args.dataset == "VinDR":
@@ -173,10 +183,14 @@ if args.only_no_finding:
 else:
     no_finding_samples_test = df_test[df_test[args.disease] == 0]
 
-no_finding_samples_test = no_finding_samples_test.sample(len(finding_samples_test), random_state=42)
+sample_size = len(finding_samples_test)
+finding_samples_test = finding_samples_test.sample(sample_size, random_state=42)
+no_finding_samples_test = no_finding_samples_test.sample(sample_size, random_state=42)
 filtered_test_images = pd.concat([no_finding_samples_test, finding_samples_test], ignore_index=True)
 print(f"Number of {no_disease} Images: {len(no_finding_samples_test)}")
 print(f"Number of {args.disease} Images: {len(finding_samples_test)}")
+
+
 
 ## 3. Initialize model
 classifier = MedImageInsight(
@@ -252,6 +266,85 @@ wandb.log({
 for i, acc in enumerate(per_class_accuracy):
     class_name = no_disease if i == 0 else args.disease
     wandb.log({f"test_accuracy_{class_name}": acc})
+
+if bias_variables is not None:
+    for variable, conditions in bias_variables.items():
+        print(f"Evaluating bias for {variable}")
+
+        # Extract ground truth and predictions
+        y_true = [int(row[args.disease]) for _, row in filtered_test_images.iterrows()]
+        y_pred = all_predictions
+
+        subgroup_metrics = {}
+        subgroup_data = {}
+
+        # Collect subgroup data
+        print(f"Initial subgroup sizes for {variable}:")
+        for subgroup, condition in conditions.items():
+            indices = filtered_test_images[condition(df_test)].index
+            subgroup_y_true = [y_true[i] for i in indices if i < len(y_true)]
+            subgroup_y_pred = [y_pred[i] for i in indices if i < len(y_pred)]
+
+            print(f"  {subgroup}: {len(subgroup_y_true)} samples")
+
+            # Store data for balancing
+            subgroup_data[subgroup] = {
+                "indices": indices,
+                "y_true": subgroup_y_true,
+                "y_pred": subgroup_y_pred,
+            }
+
+
+        # Determine the smallest subgroup size
+        min_size = min(len(data["y_true"]) for data in subgroup_data.values())
+        print(f"Balanced size for {variable}: {min_size} samples per subgroup")
+
+        # Balance subgroups by sampling
+        for subgroup, data in subgroup_data.items():
+            sampled_indices = np.random.choice(len(data["y_true"]), size=min_size, replace=False)
+            subgroup_y_true = [data["y_true"][i] for i in sampled_indices]
+            subgroup_y_pred = [data["y_pred"][i] for i in sampled_indices]
+
+
+            # Print final balanced subgroup size
+            print(f"  {subgroup}: {len(subgroup_y_true)} samples after balancing")
+
+            # Calculate metrics
+            accuracy = accuracy_score(subgroup_y_true, subgroup_y_pred)
+
+            # confusion matrix
+            cm_subgroup = confusion_matrix(subgroup_y_true, subgroup_y_pred)
+            cm_subgroup = confusion_matrix(subgroup_y_true, subgroup_y_pred)
+            no_findings_accuracy = cm_subgroup[0, 0] / cm_subgroup[0].sum()
+            findings_accuracy = cm_subgroup[1, 1] / cm_subgroup[1].sum()
+
+            # Store metrics
+            subgroup_metrics[subgroup] = {
+                "accuracy": accuracy,
+                "n_samples": min_size,
+                "no_findings_accuracy": no_findings_accuracy,
+                "findings_accuracy": findings_accuracy  
+            }
+
+        # Log metrics to W&B and print
+        for subgroup, metrics in subgroup_metrics.items():
+            print(f"{variable} - {subgroup}: Accuracy = {metrics['accuracy']:.4f},")
+            wandb.log({
+                f"{variable}_{subgroup}_accuracy": metrics["accuracy"],
+                f"{variable}_{subgroup}_n_samples": metrics["n_samples"],
+                f"{variable}_{subgroup}_no_findings_accuracy": metrics["no_findings_accuracy"],
+                f"{variable}_{subgroup}_findings_accuracy": metrics["findings_accuracy"],
+            })
+
+
+    wandb.finish()
+
+
+
+
+
+
+            
 
 
 

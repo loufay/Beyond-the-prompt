@@ -1,7 +1,7 @@
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import re
-from sklearn.metrics import confusion_matrix, roc_auc_score, accuracy_score
+from sklearn.metrics import confusion_matrix, roc_auc_score, accuracy_score, f1_score
 from PIL import Image, ImageOps
 from torchvision import transforms
 from io import BytesIO
@@ -10,6 +10,7 @@ import random
 import torch
 from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
+import wandb
 
 def create_wandb_run_name(args, experiment_type="report"):
     """
@@ -297,3 +298,60 @@ def balance_dataset(df, disease = "Pneumonia", percentage = 1, vindr_samples = F
     df_class_1 = df[df[disease] == 1].sample(minority_count, random_state=42)
     df_balanced = pd.concat([df_class_0, df_class_1])
     return df_balanced
+
+
+# Function to calculate metrics for subgroups
+def evaluate_bias(df_test, ground_truth, predicted_labels, bias_variables):
+    """
+    Evaluate bias metrics for each subgroup defined in bias_variables.
+    Args:
+        df_test (DataFrame): Test DataFrame.
+        ground_truth (list): Ground truth labels.
+        predicted_labels (list): Predicted labels.
+        bias_variables (dict): Dictionary of bias variables and subgroups.
+
+    Returns:
+        None
+    """
+    for variable, subgroups in bias_variables.items():
+        print(f"Evaluating bias for {variable}")
+
+        subgroup_metrics = {}
+        for subgroup, condition in subgroups.items():
+            # Filter test set for the subgroup
+            indices = df_test[condition(df_test)].index
+            subgroup_y_true = [ground_truth[i] for i in indices if i < len(ground_truth)]
+            subgroup_y_pred = [predicted_labels[i] for i in indices if i < len(predicted_labels)]
+
+            if len(subgroup_y_true) == 0:
+                continue
+
+            # Calculate metrics
+            accuracy = accuracy_score(subgroup_y_true, subgroup_y_pred)
+            f1 = f1_score(subgroup_y_true, subgroup_y_pred, average="weighted")
+            n_samples = len(subgroup_y_true)
+
+
+            cm_subgroup = confusion_matrix(subgroup_y_true, subgroup_y_pred)
+            no_findings_accuracy = cm_subgroup[0, 0] / cm_subgroup[0].sum() if cm_subgroup[0].sum() > 0 else 0
+            findings_accuracy = cm_subgroup[1, 1] / cm_subgroup[1].sum() if cm_subgroup[1].sum() > 0 else 0
+
+            # Store metrics
+            subgroup_metrics[subgroup] = {
+                "accuracy": accuracy,
+                "f1_score": f1,
+                "n_samples": n_samples,
+                "no_findings_accuracy": no_findings_accuracy,
+                "findings_accuracy": findings_accuracy
+            }
+        # Log metrics to W&B
+        for subgroup, metrics in subgroup_metrics.items():
+            print(f"{variable} - {subgroup}: Accuracy = {metrics['accuracy']:.4f}, F1 = {metrics['f1_score']:.4f}")
+            wandb.log({
+                f"{variable}_{subgroup}_accuracy": metrics["accuracy"],
+                f"{variable}_{subgroup}_f1_score": metrics["f1_score"],
+                f"{variable}_{subgroup}_n_samples": metrics["n_samples"],
+                f"{variable}_{subgroup}_no_findings_accuracy": metrics["no_findings_accuracy"],
+                f"{variable}_{subgroup}_findings_accuracy": metrics["findings_accuracy"],
+                "epoch": 0
+            })

@@ -115,7 +115,7 @@ for add_on in add_ons:
     # Start a new W&B run for each add_on
     run_name = f"{base_run_name}_{add_on.strip().replace(' ', '_')}"
     wandb.init(
-        project="MedImageInsights_4",
+        project="MedImageInsights_5",
         group=f"{args.dataset}-ZeroShot",
         name=run_name,
         reinit=True
@@ -261,11 +261,18 @@ for add_on in add_ons:
                     subgroup_y_prob   # Predicted probabilities for the positive class
                 ) if len(np.unique(subgroup_y_true)) > 1 else float('nan')
 
+                # confusion matrix
+                cm_subgroup = confusion_matrix(subgroup_y_true, subgroup_y_pred)
+                no_findings_accuracy = cm_subgroup[0, 0] / cm_subgroup[0].sum()
+                findings_accuracy = cm_subgroup[1, 1] / cm_subgroup[1].sum()
+
                 # Store metrics
                 subgroup_metrics[subgroup] = {
                     "accuracy": accuracy,
                     "roc_auc": roc_auc,
                     "n_samples": min_size,
+                    "no_findings_accuracy": no_findings_accuracy,
+                    "findings_accuracy": findings_accuracy  
                 }
 
             # Log metrics to W&B and print
@@ -275,6 +282,8 @@ for add_on in add_ons:
                     f"{variable}_{subgroup}_accuracy": metrics["accuracy"],
                     f"{variable}_{subgroup}_roc_auc": metrics["roc_auc"],
                     f"{variable}_{subgroup}_n_samples": metrics["n_samples"],
+                    f"{variable}_{subgroup}_no_findings_accuracy": metrics["no_findings_accuracy"],
+                    f"{variable}_{subgroup}_findings_accuracy": metrics["findings_accuracy"],
                 })
 
 
