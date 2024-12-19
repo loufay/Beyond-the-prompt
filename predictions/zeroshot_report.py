@@ -73,6 +73,11 @@ elif args.dataset == "CheXpert":
             'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture',
             'Support Devices']
     read_path = PATH_TO_DATA+"/CheXpert-v1.0-512/"
+    diseases_mimic = ['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
+        'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
+        'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture',
+        'Support Devices']
+
 
 elif args.dataset == "VinDR":
     diseases = ['No Finding', 'Bronchitis', 'Brocho-pneumonia', 'Other disease', 'Bronchiolitis', 'Situs inversus', 'Pneumonia', 'Pleuro-pneumonia', 'Diagphramatic hernia', 'Tuberculosis', 'Congenital emphysema', 'CPAM', 'Hyaline membrane disease', 'Mediastinal tumor', 'Lung tumor']

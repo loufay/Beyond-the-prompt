@@ -24,13 +24,13 @@ from PIL import Image, ImageOps
 
 # Read arguments
 parser = argparse.ArgumentParser(description="Extract findings and impressions from radiology reports.")
-parser.add_argument("--dataset", type=str, default="MIMIC", help="Dataset to use (MIMIC, CheXpert, VinDR)")
+parser.add_argument("--dataset", type=str, default="CheXpert", help="Dataset to use (MIMIC, CheXpert, VinDR)")
 parser.add_argument("--save_path", type=str, default=current_dir+"/Results/", help="Path to save the results")
 parser.add_argument("--disease", type=str, default="Pneumonia", help="Disease to analyze")
 parser.add_argument("--single_disease", action="store_true", help="Filter reports for single disease occurrence")
 parser.add_argument("--only_no_finding", action="store_true", help="Filter reports for 'No Finding' samples")
 parser.add_argument("--nr_reports_per_disease", type=int, default=10, help="Number of reports to sample per disease")
-parser.add_argument("--image_processing", type=str, default="avg_confidence", help="Image processing method [original, avg_all, avg_confidence]")
+parser.add_argument("--image_processing", type=str, default="original", help="Image processing method [original, avg_all, avg_confidence]")
 parser.add_argument("--text_processing", type=str, default="all", help="Text processing method [all, prompts_only, reports_only]")
 args = parser.parse_args()
 
@@ -48,7 +48,7 @@ if not os.path.exists(save_path):
     os.makedirs(save_path)
 # Initialize wandb
 wandb.init(
-    project="MedImageInsights_4",
+    project="MedImageInsights_DEBUG",
     group=f"{args.dataset}-VTE",
     name=run_name,
 )
@@ -68,6 +68,17 @@ elif args.dataset == "CheXpert":
             'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture',
             'Support Devices']
     read_path = PATH_TO_DATA+"/CheXpert-v1.0-512/"
+
+    bias_variables = {
+    "sex": {"Female": lambda df: df["sex"] == "Female", "Male": lambda df: df["sex"] == "Male"},
+    "age": {"Young": lambda df: df["age"] <= 62, "Old": lambda df: df["age"] > 62},
+    "race": {
+        "White": lambda df: df["race"] == "White",
+        "Asian": lambda df: df["race"] == "Asian",
+        "Black": lambda df: df["race"] == "Black",
+        },
+    }
+
 
 elif args.dataset == "VinDR":
     diseases = ['No Finding', 'Bronchitis', 'Brocho-pneumonia', 'Other disease', 'Bronchiolitis', 'Situs inversus', 'Pneumonia', 'Pleuro-pneumonia', 'Diagphramatic hernia', 'Tuberculosis', 'Congenital emphysema', 'CPAM', 'Hyaline membrane disease', 'Mediastinal tumor', 'Lung tumor']
@@ -89,7 +100,6 @@ df_test = df_test.sample(frac=1, random_state=42).reset_index(drop=True)
 
 # balance dataset to have equal number of positive and negative samples 
 sample_size = min(df_test[args.disease].value_counts().values)
-#sample_size = 10
 if args.only_no_finding:
     df_test_no_finding = df_test[df_test["No Finding"] == 1].sample(n=sample_size, random_state=42)
     # Load text embeddings
@@ -120,7 +130,8 @@ else:
 print(len(df_test_no_finding))
 print(len(df_test_disease))
 
-df_test = pd.concat([df_test_no_finding, df_test_disease])
+df_test = pd.concat([df_test_no_finding, df_test_disease]).reset_index(drop=True)
+# reset index
 print(f"Test dataset size: {len(df_test)}")
 
 all_predictions = []
@@ -163,15 +174,6 @@ for idx, row in tqdm(df_test.iterrows(),total=len(df_test), desc="Zeroshot perfo
     # Apply softmax for probabilities as torch tensor
     final_probabilities = torch.nn.functional.softmax(torch.tensor(final_scores), dim=1)
 
-    # final_scores = cosine_similarity(filtered_embeddings, averaged_text_embeddings)  # Shape: (6, K)
-    # Apply softmax for probabilities as torch tensor
-    # final_probabilities = torch.nn.functional.softmax(torch.tensor(final_scores), dim=1)
-    # get for each image the max probability
-   # final_probabilities = final_probabilities.max(dim=1).values
-    # decide for the class which is predicted most often for the images
-   # y_preds = final_probabilities.argmax(dim=1)
-    # y_pred = 1 if y_preds.sum() > int(len(y_preds)/2) else 0
-
     # Get the predicted class
     y_true = int(row[args.disease])
     y_pred = final_probabilities.argmax(dim=1).item()
@@ -179,7 +181,7 @@ for idx, row in tqdm(df_test.iterrows(),total=len(df_test), desc="Zeroshot perfo
     all_predictions.append(y_pred)
     all_true_labels.append(y_true)
 
-    # if len(all_predictions) ==100:
+    # if len(all_predictions) ==10:
     #     break
 
 # Compute metrics
@@ -215,6 +217,65 @@ classes = ["No "+ args.disease, args.disease]
 for i, acc in enumerate(per_class_accuracy):
     print(f"Accuracy for {classes[i]}: {acc:.2f}")
     wandb.log({f"test_accuracy_{classes[i]}": acc})
+
+
+
+# Subgroup metrics with balanced dataset
+if bias_variables is not None:
+    for variable, conditions in bias_variables.items():
+        print(f"Evaluating bias for {variable}")
+
+        # Exract ground truth and predictions
+        y_true = [int(row[args.disease]) for idx, row in df_test.iterrows()]
+        y_pred = all_predictions
+
+        subgroup_metrics = {}
+        subgroup_data = {}
+
+        # Collect subgroup data
+        for subgroup, condition in conditions.items():
+            indices = df_test[condition(df_test)].index
+            subgroup_y_true = [y_true[i] for i in indices if i < len(y_true)]
+            subgroup_y_pred = [y_pred[i] for i in indices if i < len(y_pred)]
+
+            # Print initial subgroup size
+            print(f"  {subgroup}: {len(subgroup_y_true)} samples")
+
+            # Store data for balancing
+            subgroup_data[subgroup] = {"indices": indices, "y_true": subgroup_y_true, "y_pred": subgroup_y_pred}
+
+  
+            # Determine the smallest subgroup size
+            min_size = min(len(data["y_true"]) for data in subgroup_data.values())
+            print(f"Balanced size for {variable}: {min_size} samples per subgroup")
+
+        # Balance subgroups by sampling
+        for subgroup, data in subgroup_data.items():
+            sampled_indices = np.random.choice(len(data["y_true"]), size=min_size, replace=False)
+            subgroup_y_true = [data["y_true"][i] for i in sampled_indices]
+            subgroup_y_pred = [data["y_pred"][i] for i in sampled_indices]
+
+            # Print final balanced subgroup size
+            print(f"  {subgroup}: {len(subgroup_y_true)} samples after balancing")
+
+            # Calculate metrics
+            accuracy = accuracy_score(subgroup_y_true, subgroup_y_pred)
+
+            # Store metrics
+            subgroup_metrics[subgroup] = {
+                "accuracy": accuracy,
+                "n_samples": min_size,
+            }
+        
+        # Log metrics to W&B and print
+        for subgroup, metrics in subgroup_metrics.items():
+            print(f"{variable} - {subgroup}: Accuracy = {metrics['accuracy']:.4f}")
+            wandb.log({
+                f"{variable}_{subgroup}_accuracy": metrics["accuracy"],
+                f"{variable}_{subgroup}_n_samples": metrics["n_samples"],
+            })
+        
+
 
 wandb.finish()
 

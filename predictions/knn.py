@@ -12,7 +12,7 @@ from sklearn.metrics import (
     ConfusionMatrixDisplay,
 )
 import matplotlib.pyplot as plt
-from utils import create_wandb_run_name
+from utils import create_wandb_run_name, balance_dataset
 
 
 # Argument Parsing
@@ -23,11 +23,22 @@ parser.add_argument("--k_neighbors", type=int, default=5, help="Number of neighb
 parser.add_argument("--disease", type=str, default="Pneumonia", help="Disease to analyze")
 parser.add_argument("--single_disease", action="store_true", help="Filter reports for single disease occurrence")
 parser.add_argument("--only_no_finding", action="store_true", help="Filter reports for 'No Finding' samples")
+parser.add_argument("--train_data_percentage", type=float, default=1.0, help="Percentage of training data to use")
+parser.add_argument("--train_vindr_percentage", action="store_true", help="Percentage of training data to use")
 args = parser.parse_args()
 
 # DEBUG
 # args.only_no_finding = True
 # args.single_disease = True
+
+
+run_name = create_wandb_run_name(args, "knn")
+# Initialize W&B
+wandb.init(
+    project="MedImageInsights_3",
+    group=f"{args.dataset}-AdapterFT",
+    name=run_name,
+)
 
 # Paths and dataset-specific configurations
 PATH_TO_DATA = "/mnt/data2/datasets_lfay/MedImageInsights/data"
@@ -71,58 +82,25 @@ elif args.dataset == "VinDR":
 else:
     raise ValueError(f"Unsupported dataset: {args.dataset}")
 
-run_name = create_wandb_run_name(args, "knn")
-# Initialize W&B
-wandb.init(
-    project="MedImageInsights_3",
-    group=f"{args.dataset}-AdapterFT",
-    name=run_name,
-)
-
 # Load data
 df_train = pd.read_csv(os.path.join(data_path, "train.csv"))
 df_val = pd.read_csv(os.path.join(data_path, "val.csv"))
 df_test = pd.read_csv(os.path.join(data_path, "test.csv"))
 
-# Balance datasets by sampling
-def balance_dataset(df, disease_column):
-    # Filter for disease-positive and disease-negative samples
-    df_disease = df[df[disease_column] == 1]
-    df_no_disease = df[df[disease_column] == 0]
-    
-    # Apply only_no_finding filtering
-    if args.only_no_finding:
-        df_no_finding = df[df["No Finding"] == 1]
-        nr_samples = min(len(df_disease), len(df_no_finding))
-        df_no_disease = df_no_finding.sample(n=nr_samples, random_state=42)
-    
-    # Apply single_disease filtering
-    if args.single_disease:
-        single_disease = diseases.copy()
-        single_disease.remove(args.disease)
-        df_disease = df_disease[
-            (df_disease[args.disease] == 1) & (df_disease[single_disease].sum(axis=1) == 0)
-        ]
-    
-    # Determine the number of samples to balance
-    nr_samples = min(len(df_disease), len(df_no_disease))
-    
-    # Balance the dataset
-    balanced_df = pd.concat([
-        df_disease.sample(n=nr_samples, random_state=42),
-        df_no_disease.sample(n=nr_samples, random_state=42)
-    ])
-
-    # add index to the balanced_df
-    balanced_df.reset_index(drop=True, inplace=True)
-    
-    return balanced_df
+df_train = df_train[(df_train["No Finding"] == 1) | (df_train["Pneumonia"] == 1)]
+df_val = df_val[(df_val["No Finding"] == 1) | (df_val["Pneumonia"] == 1)]
+df_test = df_test[(df_test["No Finding"] == 1) | (df_test["Pneumonia"] == 1)]
 
 
+df_train_balanced = balance_dataset(df_train, "Pneumonia", args.train_data_percentage, args.train_vindr_percentage)
+df_val_balanced = balance_dataset(df_val, "Pneumonia")
+df_test_balanced = balance_dataset(df_test, "Pneumonia")
 
-df_train_balanced = balance_dataset(df_train, args.disease)
-df_val_balanced = balance_dataset(df_val, args.disease)
-df_test_balanced = balance_dataset(df_test, args.disease)
+
+print(f"Train: {len(df_train_balanced)} samples")
+print(f"Val: {len(df_val_balanced)} samples")
+print(f"Test: {len(df_test_balanced)} samples")
+
 
 # Prepare features and labels
 def prepare_data(df, dataset_name="Train"):
