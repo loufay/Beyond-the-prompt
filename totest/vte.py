@@ -48,7 +48,7 @@ if not os.path.exists(save_path):
     os.makedirs(save_path)
 # Initialize wandb
 wandb.init(
-    project="MedImageInsights_4",
+    project="MedImageInsights_5",
     group=f"{args.dataset}-VTE",
     name=run_name,
 )
