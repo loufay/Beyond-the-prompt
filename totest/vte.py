@@ -100,7 +100,6 @@ df_test = df_test.sample(frac=1, random_state=42).reset_index(drop=True)
 
 # balance dataset to have equal number of positive and negative samples 
 sample_size = min(df_test[args.disease].value_counts().values)
-sample_size = 50
 if args.only_no_finding:
     df_test_no_finding = df_test[df_test["No Finding"] == 1].sample(n=sample_size, random_state=42)
     # Load text embeddings
