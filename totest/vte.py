@@ -100,6 +100,7 @@ df_test = df_test.sample(frac=1, random_state=42).reset_index(drop=True)
 
 # balance dataset to have equal number of positive and negative samples 
 sample_size = min(df_test[args.disease].value_counts().values)
+sample_size = 50
 if args.only_no_finding:
     df_test_no_finding = df_test[df_test["No Finding"] == 1].sample(n=sample_size, random_state=42)
     # Load text embeddings
@@ -261,18 +262,29 @@ if bias_variables is not None:
             # Calculate metrics
             accuracy = accuracy_score(subgroup_y_true, subgroup_y_pred)
 
+            cm_subgroup = confusion_matrix(subgroup_y_true, subgroup_y_pred)
+            no_findings_accuracy = cm_subgroup[0, 0] / cm_subgroup[0].sum()
+            findings_accuracy = cm_subgroup[1, 1] / cm_subgroup[1].sum()
+
             # Store metrics
             subgroup_metrics[subgroup] = {
                 "accuracy": accuracy,
                 "n_samples": min_size,
+                "no_findings_accuracy": no_findings_accuracy,
+                "findings_accuracy": findings_accuracy
+
             }
         
         # Log metrics to W&B and print
         for subgroup, metrics in subgroup_metrics.items():
             print(f"{variable} - {subgroup}: Accuracy = {metrics['accuracy']:.4f}")
+            print(f"  No {args.disease}: {metrics['no_findings_accuracy']:.4f}")
+            print(f"  {args.disease}: {metrics['findings_accuracy']:.4f}")
             wandb.log({
                 f"{variable}_{subgroup}_accuracy": metrics["accuracy"],
                 f"{variable}_{subgroup}_n_samples": metrics["n_samples"],
+                f"{variable}_{subgroup}_no_findings_accuracy": metrics["no_findings_accuracy"],
+                f"{variable}_{subgroup}_findings_accuracy": metrics["findings_accuracy"],
             })
         
 
