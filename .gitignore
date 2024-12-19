@@ -202,3 +202,8 @@ predictions/dataset/__pycache__/PneumoniaModel.cpython-38.pyc
 predictions/dataset/__pycache__/PneumoniaDataset.cpython-38.pyc
 predictions/dataset/__pycache__/PneumoniaModel.cpython-38.pyc
 predictions/__pycache__/utils.cpython-38.pyc
+predictions/Densenet/__pycache__/dataset.cpython-38.pyc
+predictions/Densenet/__pycache__/utils_densenet.cpython-38.pyc
+predictions/Densenet/__pycache__/utils.cpython-38.pyc
+predictions/__pycache__/utils.cpython-38.pyc
+predictions/model/__pycache__/adapter_training.cpython-38.pyc
