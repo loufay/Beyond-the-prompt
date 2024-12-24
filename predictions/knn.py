@@ -35,7 +35,7 @@ args = parser.parse_args()
 run_name = create_wandb_run_name(args, "knn")
 # Initialize W&B
 wandb.init(
-    project="MedImageInsights_3",
+    project="MedImageInsights_5",
     group=f"{args.dataset}-AdapterFT",
     name=run_name,
 )
@@ -215,11 +215,19 @@ def evaluate_model(model, features, labels, dataset_name, bias_variables=None, d
                     else float('nan')
                 )
 
+               
+                cm_subgroup = confusion_matrix(subgroup_y_true, subgroup_y_pred)
+                no_findings_accuracy = cm_subgroup[0, 0] / cm_subgroup[0].sum() if cm_subgroup[0].sum() > 0 else 0
+                findings_accuracy = cm_subgroup[1, 1] / cm_subgroup[1].sum() if cm_subgroup[1].sum() > 0 else 0
+
+
                 # Store subgroup metrics
                 subgroup_metrics[subgroup] = {
                     "accuracy": accuracy,
                     "roc_auc": roc_auc,
                     "n_samples": min_size,
+                    "no_findings_accuracy": no_findings_accuracy,
+                    "findings_accuracy": findings_accuracy,
                 }
 
             # Log subgroup metrics to W&B
@@ -229,7 +237,9 @@ def evaluate_model(model, features, labels, dataset_name, bias_variables=None, d
                     f"{dataset_name}_{variable}_{subgroup}_accuracy": metrics["accuracy"],
                     f"{dataset_name}_{variable}_{subgroup}_roc_auc": metrics["roc_auc"],
                     f"{dataset_name}_{variable}_{subgroup}_n_samples": metrics["n_samples"],
-                })
+                    f"{dataset_name}_{variable}_{subgroup}_no_findings_accuracy": metrics["no_findings_accuracy"],
+                    f"{dataset_name}_{variable}_{subgroup}_findings_accuracy": metrics["findings_accuracy"],
+                    })
 
     return accuracy, auc, f1, cm
 

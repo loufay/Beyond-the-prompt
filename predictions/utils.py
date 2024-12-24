@@ -297,6 +297,8 @@ def balance_dataset(df, disease = "Pneumonia", percentage = 1, vindr_samples = F
     df_class_0 = df[df[disease] == 0].sample(minority_count, random_state=42)
     df_class_1 = df[df[disease] == 1].sample(minority_count, random_state=42)
     df_balanced = pd.concat([df_class_0, df_class_1])
+    # reset index
+    df_balanced = df_balanced.reset_index(drop=True)
     return df_balanced
 
 

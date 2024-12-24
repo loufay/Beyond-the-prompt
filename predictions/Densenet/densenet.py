@@ -16,7 +16,7 @@ import wandb
 current_dir = os.getcwd()
 current_dir = current_dir + "/MedImageInsights"
 sys.path.append(current_dir)
-
+from predictions.utils import evaluate_bias
 
 # Define transformations
 transform = transforms.Compose([
@@ -27,7 +27,7 @@ transform = transforms.Compose([
 
 # Argument parser
 parser = argparse.ArgumentParser(description="End-to-end training for pneumonia prediction.")
-parser.add_argument("--dataset", type=str, default="MIMIC", help="Dataset to use (MIMIC, CheXpert, VinDR)")
+parser.add_argument("--dataset", type=str, default="CheXpert", help="Dataset to use (MIMIC, CheXpert, VinDR)")
 parser.add_argument("--save_path", type=str, default="./results", help="Path to save results.")
 parser.add_argument("--batch_size", type=int, default=32, help="Batch size.")
 parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs.")
@@ -41,9 +41,9 @@ args = parser.parse_args()
 
 if args.train_vindr_percentage:
     wandb.init(
-        project="MedImageInsights_3",
+        project="MedImageInsights_5",
         group=f"{args.dataset}-DenseNet",
-        name="DenseNet_VinDR_split_"+str(args.train_data_percentage),
+        name=args.dataset+"_DenseNet_VinDR_split_"+str(args.train_data_percentage),
     )
 else:
     wandb.init(
@@ -54,13 +54,22 @@ else:
 
 
 PATH_TO_DATA = os.path.join(current_dir, "data")
-
+bias_variables = None
 if args.dataset == "MIMIC":
     data_path = os.path.join(PATH_TO_DATA, "MIMIC-v1.0-512")
     results_path = os.path.join(args.save_path, "MIMIC-v1.0-512")
 elif args.dataset == "CheXpert":
     data_path = os.path.join(PATH_TO_DATA, "CheXpert-v1.0-512")
     results_path = os.path.join(args.save_path, "CheXpert-v1.0-512")
+    bias_variables = {
+    "sex": {"Female": lambda df: df["sex"] == "Female", "Male": lambda df: df["sex"] == "Male"},
+    "age": {"Young": lambda df: df["age"] <= 62, "Old": lambda df: df["age"] > 62},
+    "race": {
+        "White": lambda df: df["race"] == "White",
+        "Asian": lambda df: df["race"] == "Asian",
+        "Black": lambda df: df["race"] == "Black",
+        },
+    }
 elif args.dataset == "VinDR":
     data_path = os.path.join(PATH_TO_DATA, "vindr-pcxr")
     results_path = os.path.join(args.save_path, "vindr-pcxr")
@@ -73,6 +82,7 @@ train_df = pd.read_csv(os.path.join(data_path, "train.csv"))
 val_df = pd.read_csv(os.path.join(data_path, "val.csv"))
 test_df = pd.read_csv(os.path.join(data_path, "test.csv"))
 
+
 train_df = train_df[(train_df["No Finding"] == 1) | (train_df["Pneumonia"] == 1)]
 val_df = val_df[(val_df["No Finding"] == 1) | (val_df["Pneumonia"] == 1)]
 test_df = test_df[(test_df["No Finding"] == 1) | (test_df["Pneumonia"] == 1)]
@@ -81,7 +91,7 @@ test_df = test_df[(test_df["No Finding"] == 1) | (test_df["Pneumonia"] == 1)]
 train_df = balance_dataset(train_df, "Pneumonia", args.train_data_percentage, args.train_vindr_percentage)
 val_df = balance_dataset(val_df, "Pneumonia")
 test_df = balance_dataset(test_df, "Pneumonia")
-
+test_df = test_df.reset_index(drop=True)
 
 train_dataset = PneumoniaDataset(train_df, PATH_TO_DATA, transform=transform)
 val_dataset = PneumoniaDataset(val_df, PATH_TO_DATA, transform=transform)
@@ -184,7 +194,7 @@ if not os.path.exists(args.save_path):
 train(model, train_loader, val_loader, args.epochs, criterion, optimizer, args.save_path)
 
 # Testing
-def test(model, test_loader, criterion):
+def test(model, test_loader, criterion, df_test, bias_variables=None):
     model.eval()
     test_loss = 0
     test_preds, test_labels = [], []
@@ -233,12 +243,21 @@ def test(model, test_loader, criterion):
     plt.tight_layout()
     plt.savefig(os.path.join(args.save_path, "test_confusion_matrix.png"))
     wandb.log({"confusion_matrix": wandb.Image(plt)})
+
+        
+    if bias_variables is not None:
+        # Perform bias evaluation
+        evaluate_bias(df_test, test_preds, test_labels, bias_variables)
+
+
     wandb.finish()
 
-    
+
 
 # Load best model
 model.load_state_dict(torch.load(os.path.join(args.save_path, "best_model.pth")))
 
 # Evaluate on test set
-test(model, test_loader, criterion)
+test(model, test_loader, criterion, test_df, bias_variables=bias_variables)
+
+

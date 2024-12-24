@@ -27,7 +27,7 @@ sys.path.append(current_dir)
 
 # Argument Parsing
 parser = argparse.ArgumentParser(description="Adapter fine-tuning using Linear Probe.")
-parser.add_argument("--dataset", type=str, default="MIMIC", help="Dataset to use (MIMIC, CheXpert, VinDR)")
+parser.add_argument("--dataset", type=str, default="CheXpert", help="Dataset to use (MIMIC, CheXpert, VinDR)")
 parser.add_argument("--save_path", type=str, default=current_dir+"/Results/", help="Path to save the results")
 parser.add_argument("--only_no_finding", action="store_true", help="Filter reports for 'No Finding' samples")
 parser.add_argument("--single_disease", action="store_true", help="Filter reports for single disease occurrence")
@@ -154,7 +154,7 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="max", fa
 loss_function = torch.nn.CrossEntropyLoss()
 
 # Train the model
-max_epochs = 1000
+max_epochs = 1
 best_accuracy, best_auc = trainer(
     train_loader, val_loader, model, loss_function, optimizer, scheduler, max_epochs, output_dir
 )
@@ -234,6 +234,8 @@ def evaluate_bias(df_test, ground_truth, predicted_labels, predicted_probs, bias
             subgroup_y_true = [ground_truth[i] for i in indices if i < len(ground_truth)]
             subgroup_y_pred = [predicted_labels[i] for i in indices if i < len(predicted_labels)]
             subgroup_y_prob = [predicted_probs[i] for i in indices if i < len(predicted_probs)]
+            print(f"Subgroup: {subgroup}, Samples: {len(subgroup_y_true)}")
+
 
             if len(subgroup_y_true) == 0:
                 continue
