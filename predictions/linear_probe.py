@@ -11,7 +11,7 @@ from sklearn.metrics import (
     roc_auc_score,
     accuracy_score,
     f1_score,
-    ConfusionMatrixDisplay,
+    ConfusionMatrixDisplay, matthews_corrcoef
 )
 from model.adapter_training import (
     create_data_loader,
@@ -173,6 +173,8 @@ predicted_labels = [pred["PredictedClass"] for pred in predictions]
 accuracy = accuracy_score(ground_truth, predicted_labels)
 f1 = f1_score(ground_truth, predicted_labels, average="weighted")
 auc = roc_auc_score(ground_truth, predicted_labels)
+mcc = matthews_corrcoef(ground_truth, predicted_labels)
+
 cm = confusion_matrix(ground_truth, predicted_labels)
 
 no_findings_accuracy = cm[0, 0] / cm[0].sum() if cm[0].sum() > 0 else 0
@@ -181,6 +183,7 @@ pneumonia_accuracy = cm[1, 1] / cm[1].sum() if cm[1].sum() > 0 else 0
 print(f"Accuracy: {accuracy:.4f}")
 print(f"F1-Score: {f1:.4f}")
 print(f"AUC: {auc:.4f}")
+print(f"MCC: {mcc:.4f}")
 print(f"No Findings Accuracy: {no_findings_accuracy:.4f}")
 print(f"Pneumonia Accuracy: {pneumonia_accuracy:.4f}")
 
@@ -202,7 +205,8 @@ wandb.log({
     "Test_auc": auc,
     "Test_no_findings_accuracy": no_findings_accuracy,
     "Test_pneumonia_accuracy": pneumonia_accuracy,
-    "epoch": max_epochs
+    "epoch": max_epochs,
+    "Test_mcc": mcc
 }, commit=True)
 
 # Disable automatic step tracking for all metrics
@@ -245,7 +249,7 @@ def evaluate_bias(df_test, ground_truth, predicted_labels, predicted_probs, bias
             auc = roc_auc_score(subgroup_y_true, subgroup_y_prob) if len(np.unique(subgroup_y_true)) > 1 else float('nan')
             f1 = f1_score(subgroup_y_true, subgroup_y_pred, average="weighted")
             n_samples = len(subgroup_y_true)
-
+            mcc = matthews_corrcoef(subgroup_y_true, subgroup_y_pred)
 
             cm_subgroup = confusion_matrix(subgroup_y_true, subgroup_y_pred)
             no_findings_accuracy = cm_subgroup[0, 0] / cm_subgroup[0].sum() if cm_subgroup[0].sum() > 0 else 0
@@ -258,7 +262,8 @@ def evaluate_bias(df_test, ground_truth, predicted_labels, predicted_probs, bias
                 "f1_score": f1,
                 "n_samples": n_samples,
                 "no_findings_accuracy": no_findings_accuracy,
-                "findings_accuracy": findings_accuracy
+                "findings_accuracy": findings_accuracy,
+                "mcc": mcc
             }
         # Log metrics to W&B
         for subgroup, metrics in subgroup_metrics.items():
@@ -270,6 +275,7 @@ def evaluate_bias(df_test, ground_truth, predicted_labels, predicted_probs, bias
                 f"{variable}_{subgroup}_n_samples": metrics["n_samples"],
                 f"{variable}_{subgroup}_no_findings_accuracy": metrics["no_findings_accuracy"],
                 f"{variable}_{subgroup}_findings_accuracy": metrics["findings_accuracy"],
+                f"{variable}_{subgroup}_mcc": metrics["mcc"],
                 "epoch": max_epochs
             })
 

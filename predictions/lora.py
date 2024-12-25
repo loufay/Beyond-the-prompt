@@ -8,7 +8,7 @@ import torch
 from torch import nn, optim
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import confusion_matrix, accuracy_score, ConfusionMatrixDisplay, f1_score, recall_score, precision_score, balanced_accuracy_score
+from sklearn.metrics import confusion_matrix, accuracy_score, ConfusionMatrixDisplay, f1_score, recall_score, precision_score, balanced_accuracy_score, matthews_corrcoef
 from tqdm import tqdm
 import wandb
 from utils import read_image, create_wandb_run_name, calculate_subgroup_metrics, balance_dataset, evaluate_bias
@@ -293,8 +293,10 @@ wandb.log({"balanced_accuracy": balanced_accuracy})
 # Compute macro F1 score sklearn.metrics.f1_score
 
 f1_score = f1_score(test_labels, test_preds, average='macro')
+mcc = matthews_corrcoef(test_labels, test_preds)
 print(f"F1 Score: {f1_score:.4f}")
 wandb.log({"f1_score": f1_score})
+wandb.log({"mcc": mcc})
 
 # Compute recall and precision sklearn.metrics.recall_score, sklearn.metrics.precision_score
 recall = recall_score(test_labels, test_preds, average='macro')

@@ -9,7 +9,7 @@ from sklearn.metrics import (
     roc_auc_score,
     accuracy_score,
     f1_score,
-    ConfusionMatrixDisplay,
+    ConfusionMatrixDisplay, matthews_corrcoef
 )
 import matplotlib.pyplot as plt
 from utils import create_wandb_run_name, balance_dataset
@@ -17,7 +17,7 @@ from utils import create_wandb_run_name, balance_dataset
 
 # Argument Parsing
 parser = argparse.ArgumentParser(description="Adapter fine-tuning using k-NN.")
-parser.add_argument("--dataset", type=str, default="MIMIC", help="Dataset to use (MIMIC, CheXpert, VinDR)")
+parser.add_argument("--dataset", type=str, default="CheXpert", help="Dataset to use (MIMIC, CheXpert, VinDR)")
 parser.add_argument("--save_path", type=str, default="/mnt/data2/datasets_lfay/MedImageInsights/Results/", help="Path to save the results")
 parser.add_argument("--k_neighbors", type=int, default=5, help="Number of neighbors for k-NN")
 parser.add_argument("--disease", type=str, default="Pneumonia", help="Disease to analyze")
@@ -140,6 +140,7 @@ def evaluate_model(model, features, labels, dataset_name, bias_variables=None, d
     auc = roc_auc_score(labels, probabilities)
     f1 = f1_score(labels, predictions, average="weighted")
     cm = confusion_matrix(labels, predictions)
+    mcc = matthews_corrcoef(labels, predictions)
 
     # Class-specific metrics
     no_findings_accuracy = cm[0, 0] / cm[0].sum() if cm[0].sum() > 0 else 0
@@ -148,6 +149,7 @@ def evaluate_model(model, features, labels, dataset_name, bias_variables=None, d
     print(f"{dataset_name} Accuracy: {accuracy:.4f}")
     print(f"{dataset_name} AUC: {auc:.4f}")
     print(f"{dataset_name} F1-Score: {f1:.4f}")
+    print(f"{dataset_name} MCC: {mcc:.4f}")
 
     # Log main metrics
     wandb.log({
@@ -156,6 +158,7 @@ def evaluate_model(model, features, labels, dataset_name, bias_variables=None, d
         f"{dataset_name}_f1_score": f1,
         f"{dataset_name}_no_findings_accuracy": no_findings_accuracy,
         f"{dataset_name}_pneumonia_accuracy": pneumonia_accuracy,
+        f"{dataset_name}_mcc": mcc,
     })
 
     # Plot confusion matrix
@@ -215,7 +218,7 @@ def evaluate_model(model, features, labels, dataset_name, bias_variables=None, d
                     else float('nan')
                 )
 
-               
+                mcc = matthews_corrcoef(subgroup_y_true, subgroup_y_pred)
                 cm_subgroup = confusion_matrix(subgroup_y_true, subgroup_y_pred)
                 no_findings_accuracy = cm_subgroup[0, 0] / cm_subgroup[0].sum() if cm_subgroup[0].sum() > 0 else 0
                 findings_accuracy = cm_subgroup[1, 1] / cm_subgroup[1].sum() if cm_subgroup[1].sum() > 0 else 0
@@ -228,6 +231,7 @@ def evaluate_model(model, features, labels, dataset_name, bias_variables=None, d
                     "n_samples": min_size,
                     "no_findings_accuracy": no_findings_accuracy,
                     "findings_accuracy": findings_accuracy,
+                    "mcc": mcc,
                 }
 
             # Log subgroup metrics to W&B
@@ -239,6 +243,7 @@ def evaluate_model(model, features, labels, dataset_name, bias_variables=None, d
                     f"{dataset_name}_{variable}_{subgroup}_n_samples": metrics["n_samples"],
                     f"{dataset_name}_{variable}_{subgroup}_no_findings_accuracy": metrics["no_findings_accuracy"],
                     f"{dataset_name}_{variable}_{subgroup}_findings_accuracy": metrics["findings_accuracy"],
+                    f"{dataset_name}_{variable}_{subgroup}_mcc": metrics["mcc"],
                     })
 
     return accuracy, auc, f1, cm

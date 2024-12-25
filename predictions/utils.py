@@ -1,7 +1,7 @@
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import re
-from sklearn.metrics import confusion_matrix, roc_auc_score, accuracy_score, f1_score
+from sklearn.metrics import confusion_matrix, roc_auc_score, accuracy_score, f1_score, matthews_corrcoef
 from PIL import Image, ImageOps
 from torchvision import transforms
 from io import BytesIO
@@ -201,6 +201,7 @@ def calculate_subgroup_metrics(df_test, bias_variable, conditions, y_true, y_pre
             continue
 
         accuracy = accuracy_score(subgroup_y_true, subgroup_y_pred)
+        mcc = matthews_corrcoef(subgroup_y_true, subgroup_y_pred)
         roc_auc = roc_auc_score(
             [[truth[disease] for disease in prompt_diseases] for truth in subgroup_y_true],
             [[prob[disease] for disease in prompt_diseases] for prob in subgroup_y_prob]
@@ -210,6 +211,7 @@ def calculate_subgroup_metrics(df_test, bias_variable, conditions, y_true, y_pre
             "accuracy": accuracy,
             "roc_auc": roc_auc,
             "n_samples": len(subgroup_y_true),
+            "mcc": mcc
         }
 
     return subgroup_metrics
@@ -331,6 +333,7 @@ def evaluate_bias(df_test, ground_truth, predicted_labels, bias_variables):
             # Calculate metrics
             accuracy = accuracy_score(subgroup_y_true, subgroup_y_pred)
             f1 = f1_score(subgroup_y_true, subgroup_y_pred, average="weighted")
+            mcc = matthews_corrcoef(subgroup_y_true, subgroup_y_pred)
             n_samples = len(subgroup_y_true)
 
 
@@ -344,7 +347,8 @@ def evaluate_bias(df_test, ground_truth, predicted_labels, bias_variables):
                 "f1_score": f1,
                 "n_samples": n_samples,
                 "no_findings_accuracy": no_findings_accuracy,
-                "findings_accuracy": findings_accuracy
+                "findings_accuracy": findings_accuracy,
+                "mcc": mcc
             }
         # Log metrics to W&B
         for subgroup, metrics in subgroup_metrics.items():
@@ -355,5 +359,6 @@ def evaluate_bias(df_test, ground_truth, predicted_labels, bias_variables):
                 f"{variable}_{subgroup}_n_samples": metrics["n_samples"],
                 f"{variable}_{subgroup}_no_findings_accuracy": metrics["no_findings_accuracy"],
                 f"{variable}_{subgroup}_findings_accuracy": metrics["findings_accuracy"],
+                f"{variable}_{subgroup}_mcc": metrics["mcc"],
                 "epoch": 0
             })
