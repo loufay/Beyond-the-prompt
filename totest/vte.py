@@ -1,5 +1,5 @@
 
-from sklearn.metrics import confusion_matrix, roc_auc_score, accuracy_score
+from sklearn.metrics import confusion_matrix, roc_auc_score, accuracy_score, matthews_corrcoef
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -187,6 +187,7 @@ for idx, row in tqdm(df_test.iterrows(),total=len(df_test), desc="Zeroshot perfo
 # Compute metrics
 conf_matrix = confusion_matrix(all_true_labels, all_predictions)
 accuracy = accuracy_score(all_true_labels, all_predictions)
+mcc = matthews_corrcoef(all_true_labels, all_predictions)
 #roc_auc = roc_auc_score(all_true_labels, all_predictions)
 
 # Log metrics to W&B
@@ -211,6 +212,7 @@ print(f"Confusion Matrix:\n{conf_matrix}")
 wandb.log({
     "test_accuracy": accuracy,
     "confusion_matrix": wandb.Image(f"{save_path}confusion_matrix_test.png"),
+    "mcc": mcc,
 })
 
 classes = ["No "+ args.disease, args.disease]
@@ -260,6 +262,7 @@ if bias_variables is not None:
 
             # Calculate metrics
             accuracy = accuracy_score(subgroup_y_true, subgroup_y_pred)
+            mcc = matthews_corrcoef(subgroup_y_true, subgroup_y_pred)
 
             cm_subgroup = confusion_matrix(subgroup_y_true, subgroup_y_pred)
             no_findings_accuracy = cm_subgroup[0, 0] / cm_subgroup[0].sum()
@@ -270,7 +273,8 @@ if bias_variables is not None:
                 "accuracy": accuracy,
                 "n_samples": min_size,
                 "no_findings_accuracy": no_findings_accuracy,
-                "findings_accuracy": findings_accuracy
+                "findings_accuracy": findings_accuracy,
+                "mcc": mcc,
 
             }
         
@@ -284,6 +288,7 @@ if bias_variables is not None:
                 f"{variable}_{subgroup}_n_samples": metrics["n_samples"],
                 f"{variable}_{subgroup}_no_findings_accuracy": metrics["no_findings_accuracy"],
                 f"{variable}_{subgroup}_findings_accuracy": metrics["findings_accuracy"],
+                f"{variable}_{subgroup}_mcc": metrics["mcc"],
             })
         
 
