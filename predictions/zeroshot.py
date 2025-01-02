@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import confusion_matrix, roc_auc_score, accuracy_score
+from sklearn.metrics import confusion_matrix, roc_auc_score, accuracy_score, matthews_corrcoef
 from tqdm import tqdm
 import wandb
 from utils import read_image, create_wandb_run_name, calculate_subgroup_metrics, balance_dataset
@@ -176,10 +176,12 @@ for add_on in add_ons:
  
         # Per-Class Accuracy
     per_class_accuracy = conf_matrix.diagonal() / conf_matrix.sum(axis=1)
+    mcc = matthews_corrcoef(y_true, y_pred)
 
     print(f"Overall Accuracy: {accuracy}")
     print(f"Confusion Matrix:\n{conf_matrix}")
     print(f"ROC AUC: {roc_auc}")
+    print(f"MCC: {mcc}")
 
     # Log metrics to W&B
     plt.figure(figsize=(8, 6))
@@ -197,6 +199,7 @@ for add_on in add_ons:
         "test_accuracy": accuracy,
         "test_roc_auc": roc_auc,
         "confusion_matrix": wandb.Image(f"{save_path}confusion_matrix_test.png"),
+        "mcc": mcc
     })
 
     for i, acc in enumerate(per_class_accuracy):
@@ -265,6 +268,7 @@ for add_on in add_ons:
                 cm_subgroup = confusion_matrix(subgroup_y_true, subgroup_y_pred)
                 no_findings_accuracy = cm_subgroup[0, 0] / cm_subgroup[0].sum()
                 findings_accuracy = cm_subgroup[1, 1] / cm_subgroup[1].sum()
+                mcc_subgroup = matthews_corrcoef(subgroup_y_true, subgroup_y_pred)
 
                 # Store metrics
                 subgroup_metrics[subgroup] = {
@@ -272,7 +276,8 @@ for add_on in add_ons:
                     "roc_auc": roc_auc,
                     "n_samples": min_size,
                     "no_findings_accuracy": no_findings_accuracy,
-                    "findings_accuracy": findings_accuracy  
+                    "findings_accuracy": findings_accuracy,
+                    "mcc": mcc_subgroup
                 }
 
             # Log metrics to W&B and print
@@ -284,6 +289,7 @@ for add_on in add_ons:
                     f"{variable}_{subgroup}_n_samples": metrics["n_samples"],
                     f"{variable}_{subgroup}_no_findings_accuracy": metrics["no_findings_accuracy"],
                     f"{variable}_{subgroup}_findings_accuracy": metrics["findings_accuracy"],
+                    f"{variable}_{subgroup}_mcc": metrics["mcc"]
                 })
 
 

@@ -154,7 +154,7 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="max", fa
 loss_function = torch.nn.CrossEntropyLoss()
 
 # Train the model
-max_epochs = 1
+max_epochs = 100
 best_accuracy, best_auc = trainer(
     train_loader, val_loader, model, loss_function, optimizer, scheduler, max_epochs, output_dir
 )
