@@ -1,6 +1,6 @@
 
 
-from sklearn.metrics import confusion_matrix, roc_auc_score, accuracy_score
+from sklearn.metrics import confusion_matrix, roc_auc_score, accuracy_score, matthews_corrcoef
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -57,7 +57,7 @@ wandb.init(
     group=f"{args.dataset}-Report-ZeroShot",
     name=run_name,
 )
-
+bias_variables = None
 # Load training and test datasets
 if args.dataset == "MIMIC":
     read_path = PATH_TO_DATA+"/MIMIC-v1.0-512/"
@@ -233,6 +233,7 @@ for i, row in tqdm(filtered_test_images.iterrows(),total=len(filtered_test_image
 accuracy = accuracy_score(all_labels, all_predictions)
 conf_matrix = confusion_matrix(all_labels, all_predictions)
 roc_auc = roc_auc_score(all_labels, all_predictions)
+mcc = matthews_corrcoef(all_labels, all_predictions)
 
 # Compute per-class accuracy
 per_class_accuracy = conf_matrix.diagonal() / conf_matrix.sum(axis=1)
@@ -240,9 +241,11 @@ per_class_accuracy = conf_matrix.diagonal() / conf_matrix.sum(axis=1)
 print(f"Overall Accuracy: {accuracy}")
 print(f"Confusion Matrix:\n{conf_matrix}")
 print(f"ROC AUC: {roc_auc}")
+print(f"MCC: {mcc}")
 for i, acc in enumerate(per_class_accuracy):
     class_name = no_disease if i == 0 else args.disease
     print(f"Accuracy for {class_name}: {acc:.2f}")
+
 
 # Plot confusion matrix
 plt.figure(figsize=(8, 6))
@@ -260,6 +263,7 @@ wandb.log({
     "test_accuracy": accuracy,
     "test_roc_auc": roc_auc,
     "confusion_matrix": wandb.Image(f"{save_path}confusion_matrix_test.png"),
+    "mcc": mcc
 })
 
 # log per class accuracy
@@ -311,6 +315,7 @@ if bias_variables is not None:
 
             # Calculate metrics
             accuracy = accuracy_score(subgroup_y_true, subgroup_y_pred)
+            mcc = matthews_corrcoef(subgroup_y_true, subgroup_y_pred)
 
             # confusion matrix
             cm_subgroup = confusion_matrix(subgroup_y_true, subgroup_y_pred)
@@ -323,7 +328,8 @@ if bias_variables is not None:
                 "accuracy": accuracy,
                 "n_samples": min_size,
                 "no_findings_accuracy": no_findings_accuracy,
-                "findings_accuracy": findings_accuracy  
+                "findings_accuracy": findings_accuracy,
+                "mcc": mcc,
             }
 
         # Log metrics to W&B and print
@@ -334,6 +340,7 @@ if bias_variables is not None:
                 f"{variable}_{subgroup}_n_samples": metrics["n_samples"],
                 f"{variable}_{subgroup}_no_findings_accuracy": metrics["no_findings_accuracy"],
                 f"{variable}_{subgroup}_findings_accuracy": metrics["findings_accuracy"],
+                f"{variable}_{subgroup}_mcc": metrics["mcc"],
             })
 
 
