@@ -62,13 +62,17 @@ def create_wandb_run_name(args, experiment_type="report"):
 
         if args.train_vindr_percentage:
             name_parts.append("vindr_split")  
+        if args.weights =="distance":
+            name_parts.append("distance_weighted")
 
     elif experiment_type in ["mlp", "linear_probe", "lora"]:
         # Base name components
         name_parts = [
             args.dataset,                        # Dataset being analyzed
             experiment_type,   # Number of reports per disease
-            str(args.train_data_percentage)]
+            str(args.train_data_percentage),
+            str(args.rank)]
+            
         if args.train_vindr_percentage:
             name_parts.append("vindr_split")  
 
@@ -262,16 +266,21 @@ def augment_image_to_base64(image, num_views=3):
     """
     # Generate augmented views
     augmented_views = chest_xray_augmentations(image, num_views=num_views)
+
+    # crop image to 512x512
+    image = image.resize((512, 512))
+    augmented_views = [view.resize((512, 512)) for view in augmented_views]
+
     all_views = [image] + augmented_views
 
     def encode_to_base64(augmented_image):
         # Save augmented image to an in-memory buffer as .jpg
         buffer = BytesIO()
-        augmented_image.save(buffer, format="JPEG")
+        augmented_image.save(buffer, format="JPEG", quality=75)
         buffer.seek(0)  # Move to the start of the buffer
 
         # Encode to base64
-        base64_image = base64.encodebytes(buffer.read()).decode("utf-8")
+        base64_image = base64.encodebytes(buffer.read(), ).decode("utf-8")
         buffer.close()
         return base64_image
 

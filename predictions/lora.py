@@ -8,7 +8,7 @@ import torch
 from torch import nn, optim
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import confusion_matrix, accuracy_score, ConfusionMatrixDisplay, f1_score, recall_score, precision_score, balanced_accuracy_score, matthews_corrcoef
+from sklearn.metrics import confusion_matrix, accuracy_score, ConfusionMatrixDisplay, f1_score, recall_score, precision_score, balanced_accuracy_score, matthews_corrcoef, roc_auc_score
 from tqdm import tqdm
 import wandb
 from utils import read_image, create_wandb_run_name, calculate_subgroup_metrics, balance_dataset, evaluate_bias
@@ -32,6 +32,7 @@ parser.add_argument("--only_no_finding", action="store_true", help="Filter repor
 parser.add_argument("--single_disease", action="store_true", help="Filter reports for single disease occurrence")
 parser.add_argument("--train_data_percentage", type=float, default=1.0, help="Percentage of training data to use")
 parser.add_argument("--train_vindr_percentage", action="store_true", help="Percentage of training data to use")
+parser.add_argument("--rank", type=int, default=8, help="LoRA rank")
 args = parser.parse_args()
 
 #DEBUG
@@ -103,7 +104,7 @@ test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False, num_workers=
 
 # Define LoRA configuration targeting attention and FFN layers
 lora_config = LoraConfig(
-    r=8,  # LoRA rank
+    r=args.rank,  # LoRA rank
     lora_alpha=16,  # Scaling factor
     target_modules=[
         "window_attn.fn.qkv", 
@@ -277,13 +278,14 @@ with torch.no_grad():
 
 test_loss = test_running_loss / len(test_loader)
 test_accuracy = accuracy_score(test_labels, test_preds)
+test_auc = roc_auc_score(test_labels, test_preds)
 cm = confusion_matrix(test_labels, test_preds)
 
 print(f"Testing Loss: {test_loss:.4f}, Accuracy: {test_accuracy:.4f}")
 no_findings_accuracy = cm[0, 0] / cm[0].sum() if cm[0].sum() > 0 else 0
 pneumonia_accuracy = cm[1, 1] / cm[1].sum() if cm[1].sum() > 0 else 0
 print(f"No Findings Accuracy: {no_findings_accuracy:.4f}, Pneumonia Accuracy: {pneumonia_accuracy:.4f}")
-wandb.log({"test_loss": test_loss, "test_accuracy": test_accuracy, "no_findings_accuracy": no_findings_accuracy, "pneumonia_accuracy": pneumonia_accuracy})
+wandb.log({"test_loss": test_loss, "test_accuracy": test_accuracy, "test_accuracy_no_findings": no_findings_accuracy, "test_accuracy_pneumonia": pneumonia_accuracy, "test_auc": test_auc})
 
 # sklearn balanced accuracy
 balanced_accuracy = balanced_accuracy_score(test_labels, test_preds)

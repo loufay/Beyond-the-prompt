@@ -25,6 +25,7 @@ parser.add_argument("--single_disease", action="store_true", help="Filter report
 parser.add_argument("--only_no_finding", action="store_true", help="Filter reports for 'No Finding' samples")
 parser.add_argument("--train_data_percentage", type=float, default=1.0, help="Percentage of training data to use")
 parser.add_argument("--train_vindr_percentage", action="store_true", help="Percentage of training data to use")
+parser.add_argument("--weights", type=str, default="distance", help="Weight function used in prediction")
 args = parser.parse_args()
 
 # DEBUG
@@ -115,7 +116,12 @@ val_features, val_labels = prepare_data(df_val_balanced, "Validation")
 test_features, test_labels = prepare_data(df_test_balanced, "Test")
 
 # Initialize and train KNN model
-knn_model = KNeighborsClassifier(n_neighbors=args.k_neighbors, metric="euclidean")
+if args.weights == "distance":
+    knn_model = KNeighborsClassifier(n_neighbors=args.k_neighbors, metric="euclidean", weights="distance")
+elif args.weights == "dotproduct":
+    knn_model = KNeighborsClassifier(n_neighbors=args.k_neighbors, metric="cosine", weights="distance")
+else:
+    knn_model = KNeighborsClassifier(n_neighbors=args.k_neighbors, metric="euclidean")
 knn_model.fit(train_features, train_labels)
 
 
