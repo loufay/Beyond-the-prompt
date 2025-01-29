@@ -24,14 +24,14 @@ from PIL import Image, ImageOps
 
 # Read arguments
 parser = argparse.ArgumentParser(description="Extract findings and impressions from radiology reports.")
-parser.add_argument("--dataset", type=str, default="CheXpert", help="Dataset to use (MIMIC, CheXpert, VinDR)")
+parser.add_argument("--dataset", type=str, default="MIMIC", help="Dataset to use (MIMIC, CheXpert, VinDR)")
 parser.add_argument("--save_path", type=str, default=current_dir+"/Results/", help="Path to save the results")
 parser.add_argument("--disease", type=str, default="Pneumonia", help="Disease to analyze")
 parser.add_argument("--single_disease", action="store_true", help="Filter reports for single disease occurrence")
 parser.add_argument("--only_no_finding", action="store_true", help="Filter reports for 'No Finding' samples")
 parser.add_argument("--nr_reports_per_disease", type=int, default=10, help="Number of reports to sample per disease")
 parser.add_argument("--image_processing", type=str, default="original", help="Image processing method [original, avg_all, avg_confidence]")
-parser.add_argument("--text_processing", type=str, default="all", help="Text processing method [all, prompts_only, reports_only]")
+parser.add_argument("--text_processing", type=str, default="prompts_filtered", help="Text processing method [all, prompts_only, reports_only, prompts_imagenet, prompts_shuffled, prompts_shuffled_fixed_label, prompts_shuffled_fixed_label_small, prompts_imagenet_plus_prompt, prompts_filtered]")
 args = parser.parse_args()
 
 PATH_TO_DATA = current_dir+"/data"
@@ -39,7 +39,7 @@ PATH_TO_DATA = current_dir+"/data"
 args.only_no_finding = True
 args.single_disease = False
 
-
+bias_variables = None
 run_name = create_wandb_run_name(args, experiment_type="vte")
 save_path = args.save_path + args.dataset + "/" + run_name + "/"
 
@@ -48,7 +48,7 @@ if not os.path.exists(save_path):
     os.makedirs(save_path)
 # Initialize wandb
 wandb.init(
-    project="MedImageInsights_5",
+    project="MedImageInsights_6",
     group=f"{args.dataset}-VTE",
     name=run_name,
 )
@@ -109,6 +109,18 @@ if args.only_no_finding:
         averaged_text_embeddings = np.load(f"{PATH_TO_DATA}/text_embeddings/average_embeddings_2_no_finding_template.npy")
     elif args.text_processing == "reports_only":
         averaged_text_embeddings = np.load(f"{PATH_TO_DATA}/text_embeddings/average_embeddings_2_no_finding_report.npy")
+    elif args.text_processing == "prompts_shuffled":
+        averaged_text_embeddings = np.load(f"{PATH_TO_DATA}/text_embeddings/shuffled/averaged_embeddings_shuffled_templates.npy")
+    elif args.text_processing == "prompts_imagenet":
+        averaged_text_embeddings = np.load(f"{PATH_TO_DATA}/text_embeddings/imagenet/averaged_embeddings_imagenet_templates.npy")
+    elif args.text_processing == "prompts_shuffled_fixed_label":
+        averaged_text_embeddings = np.load(f"{PATH_TO_DATA}/text_embeddings/shuffled/averaged_embeddings_shuffled_templates_fixed_label.npy")
+    elif args.text_processing == "prompts_shuffled_fixed_label_small":
+        averaged_text_embeddings = np.load(f"{PATH_TO_DATA}/text_embeddings/shuffled/averaged_embeddings_shuffled_templates_fixed_label_small_letter.npy")
+    elif args.text_processing == "prompts_imagenet_plus_prompt":
+        averaged_text_embeddings = np.load(f"{PATH_TO_DATA}/text_embeddings/imagenet/averaged_embeddings_imagenet_plus_prompts_templates.npy")
+    elif args.text_processing == "prompts_filtered":
+        averaged_text_embeddings = np.load(f"{PATH_TO_DATA}/text_embeddings/{args.dataset}/filtered_averaged_embeddings_{args.dataset}.npy")
 
     #averaged_text_embeddings = np.load(f"{PATH_TO_DATA}/text_embeddings/average_embeddings_2_no_finding.npy")
 else:
