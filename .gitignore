@@ -209,3 +209,6 @@ predictions/__pycache__/utils.cpython-38.pyc
 predictions/model/__pycache__/adapter_training.cpython-38.pyc
 predictions/__pycache__/utils.cpython-38.pyc
 predictions/model/__pycache__/adapter_training.cpython-38.pyc
+predictions/__pycache__/utils.cpython-38.pyc
+predictions/model/__pycache__/adapter_training.cpython-38.pyc
+predictions/dataset/__pycache__/PneumoniaDataset.cpython-38.pyc

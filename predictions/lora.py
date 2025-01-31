@@ -24,6 +24,7 @@ import warnings
 warnings.filterwarnings("ignore", category=FutureWarning, module="torch.utils.checkpoint")
 import wandb
 
+torch.cuda.empty_cache()
 
 parser = argparse.ArgumentParser(description="Adapter fine-tuning using LORA.")
 parser.add_argument("--dataset", type=str, default="CheXpert", help="Dataset to use (MIMIC, CheXpert, VinDR)")
