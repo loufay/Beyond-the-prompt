@@ -165,7 +165,7 @@ num_epochs = 1000
 patience = 5  # Early stopping patience
 best_val_loss = float('inf')
 early_stop_counter = 0
-model_save_path = f"{results_path} + /{args.rank}_best_model.pth"
+model_save_path = f"{results_path}/{args.rank}_best_model.pth"
 
 for epoch in range(num_epochs):
     classifier.model.train()
