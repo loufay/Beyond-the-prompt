@@ -33,7 +33,7 @@ parser.add_argument("--only_no_finding", action="store_true", help="Filter repor
 parser.add_argument("--single_disease", action="store_true", help="Filter reports for single disease occurrence")
 parser.add_argument("--train_data_percentage", type=float, default=1.0, help="Percentage of training data to use")
 parser.add_argument("--train_vindr_percentage", action="store_true", help="Percentage of training data to use")
-parser.add_argument("--rank", type=int, default=8, help="LoRA rank")
+parser.add_argument("--rank", type=int, default=32, help="LoRA rank")
 args = parser.parse_args()
 
 #DEBUG
@@ -165,7 +165,7 @@ num_epochs = 1000
 patience = 5  # Early stopping patience
 best_val_loss = float('inf')
 early_stop_counter = 0
-model_save_path = results_path + "/best_model.pth"
+model_save_path = f"{results_path} + /{args.rank}_best_model.pth"
 
 for epoch in range(num_epochs):
     classifier.model.train()
