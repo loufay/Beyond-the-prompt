@@ -65,7 +65,18 @@ def create_wandb_run_name(args, experiment_type="report"):
         if args.weights =="distance":
             name_parts.append("distance_weighted")
 
-    elif experiment_type in ["mlp", "linear_probe", "lora"]:
+    elif experiment_type in ["mlp", "linear_probe"]:
+        # Base name components
+        name_parts = [
+            args.dataset,                        # Dataset being analyzed
+            experiment_type,   # Number of reports per disease
+            str(args.train_data_percentage),
+            ]
+            
+        if args.train_vindr_percentage:
+            name_parts.append("vindr_split")  
+
+    elif experiment_type in ["lora"]:
         # Base name components
         name_parts = [
             args.dataset,                        # Dataset being analyzed
@@ -84,7 +95,19 @@ def create_wandb_run_name(args, experiment_type="report"):
             args.image_processing,
             args.text_processing
         ]
-
+    elif experiment_type == "weighted_ensemble":
+        # Base name components
+        name_parts = [
+            args.dataset,                        # Dataset being analyzed
+            "weighted_ensemble",
+            args.image_processing,
+            args.text_processing
+        ]
+    elif experiment_type == "zpe":
+        name_parts = [
+            args.dataset,                        # Dataset being analyzed
+            "zpe"
+        ]
     else:
         # Base name components
         name_parts = [
@@ -133,9 +156,10 @@ def zero_shot_prediction(image_embedding, report_embeddings, report_labels, k=5)
     # Get labels of closest reports
     closest_labels = [report_labels[i] for i in closest_indices]
     
+    probabilities_based_on_labels = sum(closest_labels)/k
     # Predict based on majority label
     prediction = np.argmax(np.bincount(closest_labels))
-    return prediction, closest_indices   
+    return prediction, closest_indices, probabilities_based_on_labels
  
 
 
@@ -268,8 +292,8 @@ def augment_image_to_base64(image, num_views=3):
     augmented_views = chest_xray_augmentations(image, num_views=num_views)
 
     # crop image to 512x512
-    image = image.resize((512, 512))
-    augmented_views = [view.resize((512, 512)) for view in augmented_views]
+   # image = image.resize((512, 512))
+ #   augmented_views = [view.resize((512, 512)) for view in augmented_views]
 
     all_views = [image] + augmented_views
 
@@ -314,7 +338,7 @@ def balance_dataset(df, disease = "Pneumonia", percentage = 1, vindr_samples = F
 
 
 # Function to calculate metrics for subgroups
-def evaluate_bias(df_test, ground_truth, predicted_labels, bias_variables):
+def evaluate_bias(df_test, ground_truth, predicted_labels,probabilities, bias_variables):
     """
     Evaluate bias metrics for each subgroup defined in bias_variables.
     Args:
@@ -335,16 +359,17 @@ def evaluate_bias(df_test, ground_truth, predicted_labels, bias_variables):
             indices = df_test[condition(df_test)].index
             subgroup_y_true = [ground_truth[i] for i in indices if i < len(ground_truth)]
             subgroup_y_pred = [predicted_labels[i] for i in indices if i < len(predicted_labels)]
+            subgroup_y_prob = [probabilities[i] for i in indices if i < len(probabilities)]
 
             if len(subgroup_y_true) == 0:
                 continue
 
             # Calculate metrics
             accuracy = accuracy_score(subgroup_y_true, subgroup_y_pred)
+            auc = roc_auc_score(subgroup_y_true, subgroup_y_prob)
             f1 = f1_score(subgroup_y_true, subgroup_y_pred, average="weighted")
             mcc = matthews_corrcoef(subgroup_y_true, subgroup_y_pred)
             n_samples = len(subgroup_y_true)
-
 
             cm_subgroup = confusion_matrix(subgroup_y_true, subgroup_y_pred)
             no_findings_accuracy = cm_subgroup[0, 0] / cm_subgroup[0].sum() if cm_subgroup[0].sum() > 0 else 0
@@ -357,11 +382,12 @@ def evaluate_bias(df_test, ground_truth, predicted_labels, bias_variables):
                 "n_samples": n_samples,
                 "no_findings_accuracy": no_findings_accuracy,
                 "findings_accuracy": findings_accuracy,
-                "mcc": mcc
+                "mcc": mcc,
+                "auc": auc
             }
         # Log metrics to W&B
         for subgroup, metrics in subgroup_metrics.items():
-            print(f"{variable} - {subgroup}: Accuracy = {metrics['accuracy']:.4f}, F1 = {metrics['f1_score']:.4f}")
+            print(f"{variable} - {subgroup}: Accuracy = {metrics['accuracy']:.4f}, AUC = {metrics['auc']:.4f}")
             wandb.log({
                 f"{variable}_{subgroup}_accuracy": metrics["accuracy"],
                 f"{variable}_{subgroup}_f1_score": metrics["f1_score"],
@@ -369,5 +395,6 @@ def evaluate_bias(df_test, ground_truth, predicted_labels, bias_variables):
                 f"{variable}_{subgroup}_no_findings_accuracy": metrics["no_findings_accuracy"],
                 f"{variable}_{subgroup}_findings_accuracy": metrics["findings_accuracy"],
                 f"{variable}_{subgroup}_mcc": metrics["mcc"],
+                f"{variable}_{subgroup}_auc": metrics["auc"],
                 "epoch": 0
             })

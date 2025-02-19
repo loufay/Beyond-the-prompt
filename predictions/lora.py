@@ -37,12 +37,14 @@ parser.add_argument("--rank", type=int, default=8, help="LoRA rank")
 args = parser.parse_args()
 
 #DEBUG
+args.train_vindr_percentage= True
+args.only_no_finding = True
 
 run_name = create_wandb_run_name(args, "lora")
 
 # Initialize W&B
 wandb.init(
-    project="MedImageInsights_5",
+    project="MedImageInsights_7",
     group=f"{args.dataset}-LORA",
     name=run_name,
 )
@@ -259,6 +261,7 @@ test_running_loss = 0.0
 # For accuracy computation
 test_preds = []
 test_labels = []
+test_probs = []
 
 with torch.no_grad():
     for images, labels in tqdm(test_loader, desc="Testing", unit="batch"):
@@ -272,14 +275,15 @@ with torch.no_grad():
         test_loss = criterion(logits, labels)
 
         test_running_loss += test_loss.item()
-
+    
         # Collect predictions and labels for accuracy
+        test_probs.extend(torch.sigmoid(logits.squeeze()).cpu().numpy())
         test_preds.extend((logits.squeeze() > 0.5).cpu().numpy())
         test_labels.extend(labels.cpu().numpy())
 
 test_loss = test_running_loss / len(test_loader)
 test_accuracy = accuracy_score(test_labels, test_preds)
-test_auc = roc_auc_score(test_labels, test_preds)
+test_auc = roc_auc_score(test_labels, test_probs)
 cm = confusion_matrix(test_labels, test_preds)
 
 print(f"Testing Loss: {test_loss:.4f}, Accuracy: {test_accuracy:.4f}")
@@ -288,13 +292,8 @@ pneumonia_accuracy = cm[1, 1] / cm[1].sum() if cm[1].sum() > 0 else 0
 print(f"No Findings Accuracy: {no_findings_accuracy:.4f}, Pneumonia Accuracy: {pneumonia_accuracy:.4f}")
 wandb.log({"test_loss": test_loss, "test_accuracy": test_accuracy, "test_accuracy_no_findings": no_findings_accuracy, "test_accuracy_pneumonia": pneumonia_accuracy, "test_auc": test_auc})
 
-# sklearn balanced accuracy
-balanced_accuracy = balanced_accuracy_score(test_labels, test_preds)
-print(f"Balanced Accuracy: {balanced_accuracy:.4f}")
-wandb.log({"balanced_accuracy": balanced_accuracy})
 
 # Compute macro F1 score sklearn.metrics.f1_score
-
 f1_score = f1_score(test_labels, test_preds, average='macro')
 mcc = matthews_corrcoef(test_labels, test_preds)
 print(f"F1 Score: {f1_score:.4f}")
@@ -317,7 +316,7 @@ wandb.log({"confusion_matrix": wandb.Image(plt)})
 
 
 if bias_variables is not None:
-    evaluate_bias(df_test, test_preds, test_labels, bias_variables)
+    evaluate_bias(df_test, test_labels, test_preds, test_probs, bias_variables)
 
 
 
