@@ -13,12 +13,9 @@ from sklearn.metrics import confusion_matrix, roc_auc_score, accuracy_score, mat
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 from PIL import Image
-
 current_dir = os.getcwd()
 current_dir = current_dir + "/MedImageInsights"
 sys.path.append(current_dir)
-
-from MedImageInsight.medimageinsightmodel import MedImageInsight
 from utils import (
     read_image, 
     zero_shot_prediction, 
