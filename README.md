@@ -3,8 +3,9 @@
 
 ## Overview
 
-
-![Framework](figures/Fig1_Framework.png)
+<p align="center">
+  <img src="figures/Fig1_Framework.png" alt="Framework" width="80%">
+</p>
 
 
 Foundation models (FMs) have shown impressive performance in medical image analysis tasks, but their deployment in real-world clinical settings, especially across diverse patient populations such as adult and pediatric cases, remains challenging. Key open questions include optimal prompting techniques and strategies for model adaptation or fine-tuning for clinical use. In this study, we evaluated different approaches for deploying FMs in clinical scenarios for diverse patient populations. We use the lightweight, embedding-based vision-language FM \textit{MedImageInsight} to predict pneumonia from chest X-rays, a condition common in both adult and pediatric patients.
