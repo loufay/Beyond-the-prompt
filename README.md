@@ -12,17 +12,16 @@ Foundation models (FMs) have shown impressive performance in medical image analy
 We observed large variation in model predictive performance depending on the chosen prompt design, highlighting the importance of text prompt design for successful zero-shot (ZS) application. On in-domain datasets, we found performance differences of up to 15\% in AUC across different text prompts. By introducing text and vision embedding ensembles, we achieved substantial ZS improvements, outperforming fine-tuning´with LoRA in low-data scenarios by up to 10\% for adults and pediatric populations (AUC).  
 
 ## Foundation Model
-### MedImageInsight
-Implementation based on: https://huggingface.co/lion-ai/MedImageInsights
+### MedImageInsight (MI2)
+More information about [MedImageInsight](https://arxiv.org/abs/2410.06542).
 
-
-## Comparison
-
-## Data preparation
+## Datasets
 
 ### MIMIC-CXR (in-domain, adult dataset)
 ### CheXpert (out-of-domain, adult dataset)
 ### VinDR-PCXR (out-of-domain, pediatric dataset)
+
+
 
 
 
