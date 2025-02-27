@@ -7,257 +7,89 @@ import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
 from torchvision import models, transforms
-from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score, balanced_accuracy_score, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import accuracy_score, roc_auc_score, balanced_accuracy_score, f1_score, recall_score, precision_score, confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from utils_densenet import read_image, balance_dataset
-from dataset import PneumoniaDataset
 import wandb
+
 current_dir = os.getcwd()
 current_dir = current_dir + "/MedImageInsights"
 sys.path.append(current_dir)
-from predictions.utils import evaluate_bias
+sys.path.append(current_dir+"/predictions")
+from utils_densenet import read_image, balance_dataset, train, test
+from dataset import PneumoniaDataset
+from predictions.utils import evaluate_bias, create_wandb_run_name
+from config import parse_arguments, get_dataset_config
+from data_loader import load_data
 
-# Define transformations
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-])
 
-# Argument parser
-parser = argparse.ArgumentParser(description="End-to-end training for pneumonia prediction.")
-parser.add_argument("--dataset", type=str, default="CheXpert", help="Dataset to use (MIMIC, CheXpert, VinDR)")
-parser.add_argument("--save_path", type=str, default="./results", help="Path to save results.")
-parser.add_argument("--batch_size", type=int, default=32, help="Batch size.")
-parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs.")
-parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate.")
-parser.add_argument("--train_data_percentage", type=float, default=1, help="Percentage of training data to use.")
-parser.add_argument("--train_vindr_percentage", action="store_true", help="Percentage of training data to use")
+def main():
+    args = parse_arguments()
+    dataset_config = get_dataset_config(args.dataset)
+    bias_variables = dataset_config.get("bias_variables", None)
 
-args = parser.parse_args()
-
-#DEBUG
-
-if args.train_vindr_percentage:
+    # Initialize W&B
+    base_run_name = create_wandb_run_name(args, "zeroshot")
     wandb.init(
-        project="MedImageInsights_5",
-        group=f"{args.dataset}-DenseNet",
-        name=args.dataset+"_DenseNet_VinDR_split_"+str(args.train_data_percentage),
-    )
-else:
-    wandb.init(
-        project="MedImageInsights_3",
-        group=f"{args.dataset}-DenseNet",
-        name="DenseNet_"+str(args.train_data_percentage),
-    )
+    project=args.wandb_project,
+    group=f"{args.dataset}-DenseNet",
+    name=args.dataset+"_DenseNet_VinDR_split_"+str(args.train_data_percentage),
+)
+
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
 
 
-PATH_TO_DATA = os.path.join(current_dir, "data")
-bias_variables = None
-if args.dataset == "MIMIC":
-    data_path = os.path.join(PATH_TO_DATA, "MIMIC-v1.0-512")
-    results_path = os.path.join(args.save_path, "MIMIC-v1.0-512")
-elif args.dataset == "CheXpert":
-    data_path = os.path.join(PATH_TO_DATA, "CheXpert-v1.0-512")
-    results_path = os.path.join(args.save_path, "CheXpert-v1.0-512")
-    bias_variables = {
-    "sex": {"Female": lambda df: df["sex"] == "Female", "Male": lambda df: df["sex"] == "Male"},
-    "age": {"Young": lambda df: df["age"] <= 62, "Old": lambda df: df["age"] > 62},
-    "race": {
-        "White": lambda df: df["race"] == "White",
-        "Asian": lambda df: df["race"] == "Asian",
-        "Black": lambda df: df["race"] == "Black",
-        },
-    }
-elif args.dataset == "VinDR":
-    data_path = os.path.join(PATH_TO_DATA, "vindr-pcxr")
-    results_path = os.path.join(args.save_path, "vindr-pcxr")
+    # Load and balance datasets
+    data_path = os.path.join(os.getcwd(), "MedImageInsights/data", dataset_config["data_path"])
+    df_train, df_val, df_test = load_data(data_path, args.disease)
+    df_test_balanced = balance_dataset(df_test, args.disease)
+
+    print(f'Train data: {len(df_train)}')
+    print(f'Validation data: {len(df_val)}')
+    print(f"Test samples: {len(df_test_balanced)}")
+
+    # Model definition
+    model = models.densenet121(pretrained=True)
+    model.classifier = nn.Linear(model.classifier.in_features, 1)
+    model = model.cuda()
 
 
-if not os.path.exists(results_path):
-    os.makedirs(results_path)
+    # Loss function and optimizer
+    criterion = nn.BCEWithLogitsLoss()
+    optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
-train_df = pd.read_csv(os.path.join(data_path, "train.csv"))
-val_df = pd.read_csv(os.path.join(data_path, "val.csv"))
-test_df = pd.read_csv(os.path.join(data_path, "test.csv"))
+    # Learning rate scheduler
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True)
 
+    data_path = os.path.join(os.getcwd(), "MedImageInsights/data")
+    # Data loaders
+    train_dataset = PneumoniaDataset(df_train, data_path, transform)
+    val_dataset = PneumoniaDataset(df_val, data_path, transform)
+    test_dataset = PneumoniaDataset(df_test_balanced, data_path, transform)
 
-train_df = train_df[(train_df["No Finding"] == 1) | (train_df["Pneumonia"] == 1)]
-val_df = val_df[(val_df["No Finding"] == 1) | (val_df["Pneumonia"] == 1)]
-test_df = test_df[(test_df["No Finding"] == 1) | (test_df["Pneumonia"] == 1)]
+    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=4)
+    val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False, num_workers=4)
+    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, num_workers=4)
 
-# balance the dataset
-train_df = balance_dataset(train_df, "Pneumonia", args.train_data_percentage, args.train_vindr_percentage)
-val_df = balance_dataset(val_df, "Pneumonia")
-test_df = balance_dataset(test_df, "Pneumonia")
-test_df = test_df.reset_index(drop=True)
-
-train_dataset = PneumoniaDataset(train_df, PATH_TO_DATA, transform=transform)
-val_dataset = PneumoniaDataset(val_df, PATH_TO_DATA, transform=transform)
-test_dataset = PneumoniaDataset(test_df, PATH_TO_DATA, transform=transform)
-
-train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
-val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
-test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
-
-print(f"Train dataset size: {len(train_dataset)}")
-print(f"Validation dataset size: {len(val_dataset)}")
-print(f"Test dataset size: {len(test_dataset)}")
+        # Train the model
+    if not os.path.exists(args.save_path):
+        os.makedirs(args.save_path)
+    epochs = 1
+    train(model, train_loader, val_loader, epochs, criterion, optimizer, scheduler, args.save_path)
 
 
-# Model definition
-model = models.densenet121(pretrained=True)
-model.classifier = nn.Linear(model.classifier.in_features, 1)
-model = model.cuda()
+    # Load best model
+    model.load_state_dict(torch.load(os.path.join(args.save_path, "best_model.pth")))
+
+    # Evaluate on test set
+    test(model, test_loader, criterion, df_test_balanced, bias_variables=bias_variables)
 
 
-# Loss function and optimizer
-criterion = nn.BCEWithLogitsLoss()
-optimizer = optim.Adam(model.parameters(), lr=args.lr)
-
-# Learning rate scheduler
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True)
-
-
-# Training loop
-def train(model, train_loader, val_loader, num_epochs, criterion, optimizer, save_path):
-    best_val_loss = float('inf')
-    early_stop_counter = 0
-    patience = 5
-
-    for epoch in range(num_epochs):
-        model.train()
-        train_loss = 0
-        train_preds, train_labels = [], []
-
-        for images, labels in tqdm(train_loader, desc=f"Training Epoch {epoch+1}/{num_epochs}"):
-            images, labels = images.cuda(), labels.float().cuda()
-
-            optimizer.zero_grad()
-            outputs = model(images).squeeze()
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-
-            train_loss += loss.item()
-            train_preds.extend((outputs > 0).cpu().numpy())
-            train_labels.extend(labels.cpu().numpy())
-
-        train_loss /= len(train_loader)
-        train_acc = accuracy_score(train_labels, train_preds)
-
-        model.eval()
-        val_loss = 0
-        val_preds, val_labels = [], []
-        
-        with torch.no_grad():
-            for images, labels in val_loader:
-                images, labels = images.cuda(), labels.float().cuda()
-
-                outputs = model(images).squeeze()
-                loss = criterion(outputs, labels)
-
-                val_loss += loss.item()
-                val_preds.extend((outputs > 0).cpu().numpy())
-                val_labels.extend(labels.cpu().numpy())
-
-        val_loss /= len(val_loader)
-        val_acc = accuracy_score(val_labels, val_preds)
-
-        print(f"Epoch [{epoch+1}/{num_epochs}] - Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f} - Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}")
-        wandb.log({"Train Loss": train_loss, "Train Accuracy": train_acc, "Validation Loss": val_loss, "Validation Accuracy": val_acc})
-        
-        scheduler.step(val_loss)
-        current_lr = optimizer.param_groups[0]['lr']
-        wandb.log({"learning_rate": current_lr})
-        print(f"Current learning rate: {current_lr}")
-
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            torch.save(model.state_dict(), os.path.join(save_path, "best_model.pth"))
-            print("Model saved!")
-            early_stop_counter = 0
-        else:
-            early_stop_counter += 1
-            print(f"No improvement in validation loss. Early stopping counter: {early_stop_counter}/{patience}")
-
-
-        if early_stop_counter >= patience:
-            print("Early stopping triggered.")
-            break
-
-# Train the model
-if not os.path.exists(args.save_path):
-    os.makedirs(args.save_path)
-
-train(model, train_loader, val_loader, args.epochs, criterion, optimizer, args.save_path)
-
-# Testing
-def test(model, test_loader, criterion, df_test, bias_variables=None):
-    model.eval()
-    test_loss = 0
-    test_preds, test_labels = [], []
-
-    with torch.no_grad():
-        for images, labels in tqdm(test_loader, desc="Testing"):
-            images, labels = images.cuda(), labels.float().cuda()
-
-            outputs = model(images).squeeze()
-            loss = criterion(outputs, labels)
-            test_loss += loss.item()
-
-            test_preds.extend((outputs > 0).cpu().numpy())
-            test_labels.extend(labels.cpu().numpy())
-
-    test_loss /= len(test_loader)
-    test_accuracy = accuracy_score(test_labels, test_preds)
-    cm = confusion_matrix(test_labels, test_preds)
-
-    print(f"Testing Loss: {test_loss:.4f}, Accuracy: {test_accuracy:.4f}")
-    no_findings_accuracy = cm[0, 0] / cm[0].sum() if cm[0].sum() > 0 else 0
-    pneumonia_accuracy = cm[1, 1] / cm[1].sum() if cm[1].sum() > 0 else 0
-
-    print(f"No Findings Accuracy: {no_findings_accuracy:.4f}, Pneumonia Accuracy: {pneumonia_accuracy:.4f}")
-    wandb.log({"test_loss": test_loss, "test_accuracy": test_accuracy, "no_findings_accuracy": no_findings_accuracy, "pneumonia_accuracy": pneumonia_accuracy})
-
-    # sklearn balanced accuracy
-    balanced_accuracy = balanced_accuracy_score(test_labels, test_preds)
-    print(f"Balanced Accuracy: {balanced_accuracy:.4f}")
-    wandb.log({"balanced_accuracy": balanced_accuracy})
-
-    f1_score_c = f1_score(test_labels, test_preds, average='macro')
-    print(f"F1 Score: {f1_score_c:.4f}")
-    wandb.log({"f1_score": f1_score_c})
-
-    # Compute recall and precision sklearn.metrics.recall_score, sklearn.metrics.precision_score
-    recall = recall_score(test_labels, test_preds, average='macro')
-    precision = precision_score(test_labels, test_preds, average='macro')
-    print(f"Recall: {recall:.4f}, Precision: {precision:.4f}")
-
-
-    # Plot confusion matrix
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["No Finding", "Pneumonia"])
-    disp.plot(cmap=plt.cm.Blues)
-    plt.title(f"Confusion Matrix: {wandb.run.group}_{wandb.run.name}")
-    plt.tight_layout()
-    plt.savefig(os.path.join(args.save_path, "test_confusion_matrix.png"))
-    wandb.log({"confusion_matrix": wandb.Image(plt)})
-
-        
-    if bias_variables is not None:
-        # Perform bias evaluation
-        evaluate_bias(df_test, test_preds, test_labels, bias_variables)
-
-
-    wandb.finish()
-
-
-
-# Load best model
-model.load_state_dict(torch.load(os.path.join(args.save_path, "best_model.pth")))
-
-# Evaluate on test set
-test(model, test_loader, criterion, test_df, bias_variables=bias_variables)
+if __name__ == "__main__":
+    main()
 
 
