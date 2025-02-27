@@ -325,8 +325,8 @@ def perform_inference(model, test_loader):
             features = features.to(device)
             _, output = model(features)
             # Apply softmax to get probabilities
-            # probabilities = torch.softmax(output, dim=1)
-            probabilities = output
+            probabilities = torch.softmax(output, dim=1)
+            #probabilities = output
             predicted_classes = probabilities.argmax(dim=1).cpu().numpy()
             # Collect predictions
             for img_name, predicted_class, prob in zip(
@@ -336,7 +336,7 @@ def perform_inference(model, test_loader):
                     {
                         "Path": img_name,
                         "PredictedClass": predicted_class,
-                        "Probability": prob[predicted_class],
+                        "Probability": prob[1],
                     }
                 )
     

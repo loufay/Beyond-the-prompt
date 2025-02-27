@@ -24,11 +24,11 @@ def create_wandb_run_name(args, experiment_type="report"):
     """
     if experiment_type == "report":
         # Determine the report type
-        if args.findings_only:
+        if args.report_type == "Findings":
             report_type = "findings"
-        elif args.impression_only:
+        elif args.report_type == "Impressions":
             report_type = "impressions"
-        elif args.combined:
+        elif args.report_type == "Combined":
             report_type = "combined"
         else:
             report_type = "full_report"
@@ -39,11 +39,11 @@ def create_wandb_run_name(args, experiment_type="report"):
             report_type,                         # Report type: findings/impressions/combined/full_report
             "zeroshot",                          # Always include 'zeroshot' to identify the experiment type
             args.disease,                        # Disease being analyzed
-            f"n{args.nr_reports_per_disease}",   # Number of reports per disease
+            f"n{10}",   # Number of reports per disease
         ]
         # Add dataset comparison tag if applicable
-        if args.compare_to_mimic:
-            name_parts.append("compare_to_mimic")
+        #if args.compare_to_mimic:
+        name_parts.append("compare_to_mimic")
     elif experiment_type == "zeroshot":
         # Base name components
         name_parts = [
@@ -56,7 +56,7 @@ def create_wandb_run_name(args, experiment_type="report"):
         # Base name components
         name_parts = [
             args.dataset,                        # Dataset being analyzed
-            str(args.k_neighbors),                          # Always include 'zeroshot' to identify the experiment type
+            str(args.k_neighbors),                         
             "knn",   # Number of reports per disease
             str(args.train_data_percentage)]
 

@@ -1,352 +1,137 @@
-
-
-from sklearn.metrics import confusion_matrix, roc_auc_score, accuracy_score, matthews_corrcoef
-import matplotlib.pyplot as plt
-import seaborn as sns
+import os
+import sys
+import torch
 import numpy as np
 import pandas as pd
-import base64
-import os
-import torch
-from sklearn.metrics.pairwise import cosine_similarity
-from utils import read_image, zero_shot_prediction, extract_findings_and_impressions, create_wandb_run_name
-import sys
 import wandb
-from tqdm import tqdm
+from config import parse_arguments, get_dataset_config
+from data_loader import load_data, prepare_samples
+from metrics import evaluate_model, plot_confusion_matrix
 current_dir = os.getcwd()
 current_dir = current_dir + "/MedImageInsights"
 sys.path.append(current_dir)
 from MedImageInsight.medimageinsightmodel import MedImageInsight
-import argparse
-
-# Read arguments
-parser = argparse.ArgumentParser(description="Extract findings and impressions from radiology reports.")
-parser.add_argument("--dataset", type=str, default="CheXpert", help="Dataset to use (MIMIC, CheXpert, VinDR)")
-parser.add_argument("--compare_to_mimic", action="store_true", help="Compare to MIMIC reports")
-parser.add_argument("--findings_only", action="store_true", help="Extract only the findings section")
-parser.add_argument("--impression_only", action="store_true", help="Extract only the impression section")
-parser.add_argument("--combined", action="store_true", help="Combine findings and impressions")
-parser.add_argument("--save_path", type=str, default=current_dir+"/Results/", help="Path to save the results")
-parser.add_argument("--disease", type=str, default="Pneumonia", help="Disease to analyze")
-parser.add_argument("--single_disease", action="store_true", help="Filter reports for single disease occurrence")
-parser.add_argument("--only_no_finding", action="store_true", help="Filter reports for 'No Finding' samples")
-parser.add_argument("--nr_reports_per_disease", type=int, default=10, help="Number of reports to sample per disease")
-args = parser.parse_args()
-
-PATH_TO_DATA = os.path.join(current_dir, "data")
-
-##DEBUG
-# args.findings_only = True
-# args.only_no_finding = True
-# args.compare_to_mimic = True
-
-# Set options
-findings_only = args.findings_only
-impression_only = args.impression_only
-combined = args.combined
+from sklearn.metrics.pairwise import cosine_similarity
+from utils import create_wandb_run_name, balance_dataset, evaluate_bias, zero_shot_prediction
+from model.model import get_medimageinsight_classifier
 
 
-run_name = create_wandb_run_name(args, experiment_type="report")
+def main():
+    args = parse_arguments()
+    dataset_config = get_dataset_config(args.dataset)
+    bias_variables = dataset_config.get("bias_variables", None)
 
-save_path = args.save_path + args.dataset + "/" + run_name + "/"
-if not os.path.exists(save_path):
-    os.makedirs(save_path)
-# Initialize wandb
-wandb.init(
-    project="MedImageInsights_5",
-    group=f"{args.dataset}-Report-ZeroShot",
-    name=run_name,
-)
-bias_variables = None
-# Load training and test datasets
-if args.dataset == "MIMIC":
-    read_path = PATH_TO_DATA+"/MIMIC-v1.0-512/"
+    # Initialize W&B
+    run_name = create_wandb_run_name(args, "report")
+    wandb.init(
+        project=args.wandb_project,
+        group=f"{args.dataset}-ZeroShot-Report",
+        name=run_name,
+    )
 
-    diseases = ['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
-            'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
-            'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture',
-            'Support Devices']
-    
-elif args.dataset == "CheXpert":
-    diseases = ['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
-            'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
-            'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture',
-            'Support Devices']
-    read_path = PATH_TO_DATA+"/CheXpert-v1.0-512/"
+    output_dir = os.path.join(args.save_path, f"{args.dataset}-ZeroShot-Report", f"{wandb.run.group}_{wandb.run.name}")
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Load and balance datasets
+    data_path = os.path.join(os.getcwd(), "MedImageInsights/data", dataset_config["data_path"])
+    _, df_val, df_test = load_data(data_path, args.disease)
+
     diseases_mimic = ['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
         'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
         'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture',
         'Support Devices']
-
-    bias_variables = {
-    "sex": {"Female": lambda df: df["sex"] == "Female", "Male": lambda df: df["sex"] == "Male"},
-    "age": {"Young": lambda df: df["age"] <= 62, "Old": lambda df: df["age"] > 62},
-    "race": {
-        "White": lambda df: df["race"] == "White",
-        "Asian": lambda df: df["race"] == "Asian",
-        "Black": lambda df: df["race"] == "Black",
-        },
-    }
-
-
-elif args.dataset == "VinDR":
-    diseases = ['No Finding', 'Bronchitis', 'Brocho-pneumonia', 'Other disease', 'Bronchiolitis', 'Situs inversus', 'Pneumonia', 'Pleuro-pneumonia', 'Diagphramatic hernia', 'Tuberculosis', 'Congenital emphysema', 'CPAM', 'Hyaline membrane disease', 'Mediastinal tumor', 'Lung tumor']
-    read_path = PATH_TO_DATA+"/vindr-pcxr/"
-
-    diseases_mimic = ['No Finding', 'Enlarged Cardiomediastinum', 'Cardiomegaly', 'Lung Opacity',
-            'Lung Lesion', 'Edema', 'Consolidation', 'Pneumonia', 'Atelectasis',
-            'Pneumothorax', 'Pleural Effusion', 'Pleural Other', 'Fracture',
-            'Support Devices']
-
-if args.compare_to_mimic:
-    read_path_mimic = PATH_TO_DATA+"/MIMIC-v1.0-512/"
-    df_train = pd.read_csv(read_path_mimic + "train.csv")
-else:
-    df_train = pd.read_csv(read_path + "train.csv")
-
-df_test = pd.read_csv(read_path + "test.csv")
-
-# drop finding from diseases to ensure only one disease is present 
-if args.single_disease:
-    single_disease = diseases.copy()
-    single_disease.remove(args.disease)
-    finding_samples_train = df_train[(df_train[args.disease] == 1) & (df_train[single_disease]== 0).all(axis=1)]
-else:
-    finding_samples_train = df_train[df_train[args.disease] == 1]
-
-# Filter test data for 'No Finding' samples or anything can be true as long as args.disease is false
-if args.only_no_finding:
-    if args.compare_to_mimic:
-        no_finding_samples_train = df_train[(df_train['No Finding'] == 1) & (df_train[diseases_mimic[1:]]== 0).all(axis=1)]
-    else:
-        no_finding_samples_train = df_train[(df_train['No Finding'] == 1) & (df_train[diseases[1:]]== 0).all(axis=1)]
-    no_finding_samples_train = no_finding_samples_train.sample(len(finding_samples_train), random_state=42)
-    no_disease = "No Finding"
-else:
-    no_finding_samples_train = df_train[df_train[args.disease] == 0]
-    no_finding_samples_train = no_finding_samples_train.sample(len(finding_samples_train), random_state=42)
-    no_disease = "No "+args.disease
-
-## 1. Extract reports to compare to
-if not args.findings_only and not args.impression_only:
-    no_finding_reports = no_finding_samples_train.report.sample(args.nr_reports_per_disease, random_state=42)
-    finding_reports = finding_samples_train.report.sample(args.nr_reports_per_disease, random_state=42)
-elif args.findings_only:
-    print("Extracting findings only")
-    no_finding_reports = no_finding_samples_train.section_findings.sample(args.nr_reports_per_disease*2, random_state=42)
-    finding_reports = finding_samples_train.section_findings.sample(args.nr_reports_per_disease*2, random_state=42)
-    # drop if nan
-    no_finding_reports = no_finding_reports.dropna()[0:args.nr_reports_per_disease]
-    finding_reports = finding_reports.dropna()[0:args.nr_reports_per_disease]
-
-elif args.impression_only:
-    print("Extracting impressions only")
-    no_finding_reports = no_finding_samples_train.section_findings.sample(args.nr_reports_per_disease*2, random_state=42)
-    finding_reports = finding_samples_train.section_findings.sample(args.nr_reports_per_disease*2, random_state=42)
-    # drop if nan
-    no_finding_reports = no_finding_reports.dropna()[0:args.nr_reports_per_disease]
-    finding_reports = finding_reports.dropna()[0:args.nr_reports_per_disease]
-
-elif args.combined:
-    print("Extracting combined findings and impressions")
-    # Combine findings and impressions for no-finding and finding samples
-    no_finding_reports = (
-        no_finding_samples_train.section_findings.str.cat(
-            no_finding_samples_train.section_impression, sep=" ", na_rep=""
-        )
-        .sample(args.nr_reports_per_disease * 2, random_state=42)
-    )
-    finding_reports = (
-        finding_samples_train.section_findings.str.cat(
-            finding_samples_train.section_impression, sep=" ", na_rep=""
-        )
-        .sample(args.nr_reports_per_disease * 2, random_state=42)
-    )
-
-    # drop nan
-    no_finding_reports = no_finding_reports.dropna()[0:args.nr_reports_per_disease]
-    finding_reports = finding_reports.dropna()[0:args.nr_reports_per_disease]
-
-
-print(f"Number of {no_disease} Reports: {len(no_finding_reports)}")
-print(f"Number of {args.disease} Reports: {len(finding_reports)}")
-
-
-## 2. Extract images from TEST data
-if args.single_disease:
-    finding_samples_test = df_test[(df_test[args.disease] == 1) & (df_test[single_disease]== 0).all(axis=1)]
-else:
-    finding_samples_test = df_test[df_test[args.disease] == 1]
-
-if args.only_no_finding:
-    no_finding_samples_test = df_test[(df_test['No Finding'] == 1) & (df_test[diseases[1:]]== 0).all(axis=1)]
-else:
-    no_finding_samples_test = df_test[df_test[args.disease] == 0]
-
-sample_size = len(finding_samples_test)
-finding_samples_test = finding_samples_test.sample(sample_size, random_state=42)
-no_finding_samples_test = no_finding_samples_test.sample(sample_size, random_state=42)
-filtered_test_images = pd.concat([no_finding_samples_test, finding_samples_test], ignore_index=True)
-print(f"Number of {no_disease} Images: {len(no_finding_samples_test)}")
-print(f"Number of {args.disease} Images: {len(finding_samples_test)}")
-
-
-
-## 3. Initialize model
-classifier = MedImageInsight(
-    model_dir=current_dir+"/MedImageInsight/2024.09.27",
-    vision_model_name="medimageinsigt-v1.0.0.pt",
-    language_model_name="language_model.pth"
-)
-classifier.load_model()
-
-# Encode the selected reports
-with torch.no_grad():
-    report_texts = list(no_finding_reports) + list(finding_reports)
-    report_embeddings = classifier.encode(texts=report_texts)["text_embeddings"]
-
-# Create labels for the reports
-report_labels = [0] * len(no_finding_reports) + [1] * len(finding_reports)
-
-## 4. Zero-shot prediction
-
-all_predictions = []
-all_labels = []
-
-for i, row in tqdm(filtered_test_images.iterrows(),total=len(filtered_test_images), desc="Zeroshot performance"):
-    path_to_img =PATH_TO_DATA+row["Path"]
-    image_base64 = base64.encodebytes(read_image(path_to_img)).decode("utf-8")
     
-    # Encode the image
-    image_embedding = classifier.encode(images=[image_base64])["image_embeddings"]
+    read_path_mimic = os.path.join(os.getcwd(), "MedImageInsights/data/MIMIC-v1.0-512/")
+    df_train = pd.read_csv(read_path_mimic + "train.csv")
 
-    # Predict based on the closest reports
-    predicted_label, closest_indices = zero_shot_prediction(image_embedding, report_embeddings, report_labels, k=5)
+    #d_test = df_test[(df_test["No Finding"] == 1) | (df_test[args.disease] == 1)]
+    d_test = df_test[((df_test["No Finding"] == 1)  & (df_test[diseases_mimic[1:]]== 0).all(axis=1) )| (df_test[args.disease] == 1)]
+    no_finding_samples_test = df_test[(df_test['No Finding'] == 1) & (df_test[diseases_mimic[1:]]== 0).all(axis=1)]
+    finding_samples_test = df_test[(df_test[args.disease] == 1)]
+    no_finding_samples_test = no_finding_samples_test.sample(len(finding_samples_test), random_state=42)
+    
+    df_test = pd.concat([finding_samples_test, no_finding_samples_test])
 
-    # Get ground truth label for evaluation
-    true_label = 0 if row[args.disease] == 0 else 1
-    all_predictions.append(predicted_label)
-    all_labels.append(true_label)
+    df_test_balanced = balance_dataset(df_test, args.disease)
 
+    classifier = get_medimageinsight_classifier()
+    classifier.model.eval()
 
-## 5. Evaluate the predictions
-accuracy = accuracy_score(all_labels, all_predictions)
-conf_matrix = confusion_matrix(all_labels, all_predictions)
-roc_auc = roc_auc_score(all_labels, all_predictions)
-mcc = matthews_corrcoef(all_labels, all_predictions)
+    # Compare to MIMIC reports
+    nr_reports = 10
 
-# Compute per-class accuracy
-per_class_accuracy = conf_matrix.diagonal() / conf_matrix.sum(axis=1)
+    # Sample Finding Reports
+    finding_samples_train  = df_train[(df_train[args.disease] == 1)]
+    no_finding_samples_train = df_train[(df_train['No Finding'] == 1) & (df_train[diseases_mimic[1:]]== 0).all(axis=1)]
+    no_finding_samples_train = no_finding_samples_train.sample(len(finding_samples_train), random_state=42)
 
-print(f"Overall Accuracy: {accuracy}")
-print(f"Confusion Matrix:\n{conf_matrix}")
-print(f"ROC AUC: {roc_auc}")
-print(f"MCC: {mcc}")
-for i, acc in enumerate(per_class_accuracy):
-    class_name = no_disease if i == 0 else args.disease
-    print(f"Accuracy for {class_name}: {acc:.2f}")
+    if args.report_type == "Findings":
+        no_finding_reports = no_finding_samples_train.section_findings.sample(nr_reports*2, random_state=42)
+        finding_reports = finding_samples_train.section_findings.sample(nr_reports*2, random_state=42)
+        # drop reports with no findings
+        no_finding_reports = no_finding_reports.dropna()[0:nr_reports]
+        finding_reports = finding_reports.dropna()[0:nr_reports]
+    elif args.report_type == "Impression":
+        no_finding_reports = no_finding_samples_train.section_impression.sample(nr_reports*2, random_state=42)
+        finding_reports = finding_samples_train.section_impression.sample(nr_reports*2, random_state=42)
+        # drop reports with no findings
+        no_finding_reports = no_finding_reports.dropna()[0:nr_reports]
+        finding_reports = finding_reports.dropna()[0:nr_reports]
+    elif args.report_type == "Combined":
+        no_finding_reports = no_finding_samples_train.section_findings.str.cat(no_finding_reports.section_impression, sep=" ", na_rep="").sample(nr_reports*2, random_state=42)
+        finding_reports = finding_samples_train.section_findings.str.cat(finding_reports.section_impression, sep=" ", na_rep="").sample(nr_reports*2, random_state=42)
+        # drop reports with no findings
+        no_finding_reports = no_finding_reports.dropna()[0:nr_reports]
+        finding_reports = finding_reports.dropna()[0:nr_reports]
+    else:
+        no_finding_reports = no_finding_samples_train.report.sample(nr_reports, random_state=42)
+        finding_reports = finding_samples_train.report.sample(nr_reports, random_state=42)
 
+      
+    print(f"Number of No Finding Reports: {len(no_finding_reports)}")
+    print(f"Number of {args.disease} Reports: {len(finding_reports)}")
+    print(f"Number of Balanced Test data: {len(df_test_balanced)}")
 
-# Plot confusion matrix
-plt.figure(figsize=(8, 6))
-stanford_palette = ["#F6C2C2", "#ED8686", "#E44949", "#8C1515", "#691010", "#460B0B"]
-sns.heatmap(conf_matrix, annot=True, fmt='d', cmap=sns.blend_palette(stanford_palette, as_cmap=True), cbar=False,
-            xticklabels=[no_disease,args.disease], yticklabels=[no_disease,args.disease], annot_kws={"fontsize": 32})
+    with torch.no_grad():
+        report_texts = list(no_finding_reports) + list(finding_reports)
+        report_embeddings = classifier.encode(texts=report_texts)["text_embeddings"]
+    
+    report_labels = [0]*len(no_finding_reports) + [1]*len(finding_reports)
 
-plt.title("Confusion Matrix")
-plt.xlabel("Predicted")
-plt.ylabel("True")
-plt.tight_layout()
-plt.savefig(f"{save_path}confusion_matrix_test.png")
+    # Zero-Shot Prediction with k-NN Report Comparison
+    all_predictions, all_labels, all_probabilities = [], [], []
+    for i, row in df_test_balanced.iterrows():
+        image_embedding = np.array(row[-1024:].values).reshape(1, 1024)
 
-wandb.log({
-    "test_accuracy": accuracy,
-    "test_roc_auc": roc_auc,
-    "confusion_matrix": wandb.Image(f"{save_path}confusion_matrix_test.png"),
-    "mcc": mcc
-})
+        # Zero-Shot Prediction using k-NN with Reports
+        prediction, closest_indices, probabilities_based_on_labels = zero_shot_prediction(
+            image_embedding=image_embedding, 
+            report_embeddings=report_embeddings, 
+            report_labels=report_labels, 
+            k=5  # Number of closest reports to consider
+        )
 
-# log per class accuracy
-for i, acc in enumerate(per_class_accuracy):
-    class_name = no_disease if i == 0 else args.disease
-    wandb.log({f"test_accuracy_{class_name}": acc})
+        # Use prediction and probabilities from k-NN
+        true_label = 0 if row[args.disease] == 0 else 1
+        all_probabilities.append(probabilities_based_on_labels)  
+        all_predictions.append(prediction)
+        all_labels.append(true_label)
 
-if bias_variables is not None:
-    for variable, conditions in bias_variables.items():
-        print(f"Evaluating bias for {variable}")
-
-        # Extract ground truth and predictions
-        y_true = [int(row[args.disease]) for _, row in filtered_test_images.iterrows()]
-        y_pred = all_predictions
-
-        subgroup_metrics = {}
-        subgroup_data = {}
-
-        # Collect subgroup data
-        print(f"Initial subgroup sizes for {variable}:")
-        for subgroup, condition in conditions.items():
-            indices = filtered_test_images[condition(df_test)].index
-            subgroup_y_true = [y_true[i] for i in indices if i < len(y_true)]
-            subgroup_y_pred = [y_pred[i] for i in indices if i < len(y_pred)]
-
-            print(f"  {subgroup}: {len(subgroup_y_true)} samples")
-
-            # Store data for balancing
-            subgroup_data[subgroup] = {
-                "indices": indices,
-                "y_true": subgroup_y_true,
-                "y_pred": subgroup_y_pred,
-            }
-
-
-        # Determine the smallest subgroup size
-        min_size = min(len(data["y_true"]) for data in subgroup_data.values())
-        print(f"Balanced size for {variable}: {min_size} samples per subgroup")
-
-        # Balance subgroups by sampling
-        for subgroup, data in subgroup_data.items():
-            sampled_indices = np.random.choice(len(data["y_true"]), size=min_size, replace=False)
-            subgroup_y_true = [data["y_true"][i] for i in sampled_indices]
-            subgroup_y_pred = [data["y_pred"][i] for i in sampled_indices]
-
-
-            # Print final balanced subgroup size
-            print(f"  {subgroup}: {len(subgroup_y_true)} samples after balancing")
-
-            # Calculate metrics
-            accuracy = accuracy_score(subgroup_y_true, subgroup_y_pred)
-            mcc = matthews_corrcoef(subgroup_y_true, subgroup_y_pred)
-
-            # confusion matrix
-            cm_subgroup = confusion_matrix(subgroup_y_true, subgroup_y_pred)
-            cm_subgroup = confusion_matrix(subgroup_y_true, subgroup_y_pred)
-            no_findings_accuracy = cm_subgroup[0, 0] / cm_subgroup[0].sum()
-            findings_accuracy = cm_subgroup[1, 1] / cm_subgroup[1].sum()
-
-            # Store metrics
-            subgroup_metrics[subgroup] = {
-                "accuracy": accuracy,
-                "n_samples": min_size,
-                "no_findings_accuracy": no_findings_accuracy,
-                "findings_accuracy": findings_accuracy,
-                "mcc": mcc,
-            }
-
-        # Log metrics to W&B and print
-        for subgroup, metrics in subgroup_metrics.items():
-            print(f"{variable} - {subgroup}: Accuracy = {metrics['accuracy']:.4f},")
-            wandb.log({
-                f"{variable}_{subgroup}_accuracy": metrics["accuracy"],
-                f"{variable}_{subgroup}_n_samples": metrics["n_samples"],
-                f"{variable}_{subgroup}_no_findings_accuracy": metrics["no_findings_accuracy"],
-                f"{variable}_{subgroup}_findings_accuracy": metrics["findings_accuracy"],
-                f"{variable}_{subgroup}_mcc": metrics["mcc"],
-            })
-
+    # Evaluate on Test Set using the provided evaluate_model function
+    test_accuracy, test_auc, test_f1, test_cm = evaluate_model(
+        probabilities=all_probabilities,
+        predictions=all_predictions,
+        labels=all_labels,
+        dataset_name="Test",
+        bias_variables=bias_variables,
+        df=df_test_balanced
+    )
 
     wandb.finish()
+    
 
-
+if __name__ == "__main__":
+    main()
 
 
 
