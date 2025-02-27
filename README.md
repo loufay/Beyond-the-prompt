@@ -3,8 +3,11 @@
 
 ## Overview
 
+
 <p align="center">
-  <img src="figures/Fig1_Framework.png" alt="Framework" width="80%">
+  <a href="URL_OF_THE_WORK" target="_blank">
+    <img src="figures/Fig1_Framework.png" alt="Framework" width="60%">
+  </a>
 </p>
 
 
