@@ -58,10 +58,13 @@ def evaluate_subgroup_metrics(y_true, y_pred, y_prob, bias_variables, df, datase
             indices = df[condition(df)].index
             subgroup_y_true = [y_true[i] for i in indices if i < len(y_true)]
             subgroup_y_pred = [y_pred[i] for i in indices if i < len(y_pred)]
-            subgroup_y_prob = [y_prob[i] for i in indices if i < len(y_prob)]
+            if y_prob is not None:
+                subgroup_y_prob = [y_prob[i] for i in indices if i < len(y_prob)]
+                roc_auc = roc_auc_score(subgroup_y_true, subgroup_y_prob) if len(np.unique(subgroup_y_true)) > 1 else float('nan')
+            else:
+                roc_auc = float('nan')
 
             accuracy = accuracy_score(subgroup_y_true, subgroup_y_pred)
-            roc_auc = roc_auc_score(subgroup_y_true, subgroup_y_prob) if len(np.unique(subgroup_y_true)) > 1 else float('nan')
             mcc = matthews_corrcoef(subgroup_y_true, subgroup_y_pred)
             cm_subgroup = confusion_matrix(subgroup_y_true, subgroup_y_pred)
             no_findings_accuracy = cm_subgroup[0, 0] / cm_subgroup[0].sum() if cm_subgroup[0].sum() > 0 else 0
