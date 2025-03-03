@@ -7,9 +7,9 @@ def load_data(data_path, disease):
     df_val = pd.read_csv(f"{data_path}/val.csv")
     df_test = pd.read_csv(f"{data_path}/test.csv")
 
-    df_train = df_train[(df_train["No Finding"] == 1) | (df_train["Pneumonia"] == 1)]
-    df_val = df_val[(df_val["No Finding"] == 1) | (df_val["Pneumonia"] == 1)]
-    df_test = df_test[(df_test["No Finding"] == 1) | (df_test["Pneumonia"] == 1)]
+    df_train = df_train[(df_train["No Finding"] == 1) | (df_train[disease] == 1)]
+    df_val = df_val[(df_val["No Finding"] == 1) | (df_val[disease] == 1)]
+    df_test = df_test[(df_test["No Finding"] == 1) | (df_test[disease] == 1)]
 
     return df_train, df_val, df_test
 
