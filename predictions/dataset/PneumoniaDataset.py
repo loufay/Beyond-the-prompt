@@ -6,7 +6,7 @@ import os
 import io
 
 class PneumoniaDataset(Dataset):
-    def __init__(self, df, data_dir):
+    def __init__(self, df, data_dir, disease="Pneumonia"):
         """
         Args:
             df (DataFrame): DataFrame containing 'Path', 'Pneumonia', and 'No Finding' columns.
@@ -14,6 +14,7 @@ class PneumoniaDataset(Dataset):
         """
         self.df = df
         self.data_dir = data_dir
+        self.disease = disease
 
     def __len__(self):
         return len(self.df)
@@ -34,7 +35,7 @@ class PneumoniaDataset(Dataset):
         img_base64 = base64.encodebytes(buffer.getvalue()).decode("utf-8")
 
         # Determine label
-        if row["Pneumonia"] == 1:
+        if row[self.disease] == 1:
             label = 1  # Positive
         elif row["No Finding"] == 1:
             label = 0  # Negative
