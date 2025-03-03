@@ -9,7 +9,10 @@ from sklearn.metrics import ConfusionMatrixDisplay
 def evaluate_model(probabilities, predictions, labels, dataset_name, bias_variables=None, df=None):
 
     accuracy = accuracy_score(labels, predictions)
-    auc = roc_auc_score(labels, probabilities)
+    if probabilities is not None:
+        auc = roc_auc_score(labels, probabilities)
+    else:
+        auc = float("nan")
     f1 = f1_score(labels, predictions, average="weighted")
     cm = confusion_matrix(labels, predictions)
     mcc = matthews_corrcoef(labels, predictions)
