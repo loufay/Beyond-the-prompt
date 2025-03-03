@@ -36,9 +36,9 @@ def main():
     df_val_balanced = balance_dataset(df_val, args.disease)
     df_test_balanced = balance_dataset(df_test, args.disease)
 
-    train_features, train_labels = prepare_data(df_train_balanced, "Train")
-    val_features, val_labels = prepare_data(df_val_balanced, "Validation")
-    test_features, test_labels = prepare_data(df_test_balanced, "Test")
+    train_features, train_labels = prepare_data(df_train_balanced, "Train", args.disease)
+    val_features, val_labels = prepare_data(df_val_balanced, "Validation", args.disease)
+    test_features, test_labels = prepare_data(df_test_balanced, "Test", args.disease)
 
     # Initialize model
     knn_model = create_knn_model(args.k_neighbors, args.weights)

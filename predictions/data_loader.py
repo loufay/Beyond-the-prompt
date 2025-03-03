@@ -14,17 +14,17 @@ def load_data(data_path, disease):
     return df_train, df_val, df_test
 
 # Prepare features and labels
-def prepare_data(df, dataset_name="Train"):
+def prepare_data(df, dataset_name="Train", disease="Pneumonia"):
     features = np.vstack(df[df.columns[-1024:]].values)
-    labels = df["Pneumonia"].values
+    labels = df[disease].values
     # print number of samples
     print(f"{dataset_name} samples: {len(labels)}")
     return features, labels
 
 # Prepare samples
-def prepare_samples(df, feature_columns):
+def prepare_samples(df, feature_columns, disease):
     return {
         "img_name": df["Path"].tolist(),
-        "labels": df["Pneumonia"].tolist(),
+        "labels": df[disease].tolist(),
         "features": [np.array(row) for row in df[feature_columns].values]
     }

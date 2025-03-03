@@ -56,20 +56,20 @@ def extract_weighted_text_embeddings(args):
 
     # Load image embeddings
     df_train = pd.read_csv(os.path.join(data_path, "train.csv"))
-    df_train = df_train[(df_train["No Finding"] == 1) | (df_train["Pneumonia"] == 1)]
-    df_train_balanced = balance_dataset(df_train, "Pneumonia", 1, True)
+    df_train = df_train[(df_train["No Finding"] == 1) | (df_train[args.disease] == 1)]
+    df_train_balanced = balance_dataset(df_train, args.disease, 1, True)
 
     df_test = pd.read_csv(os.path.join(data_path, "test.csv"))
-    df_test = df_test[(df_test["No Finding"] == 1) | (df_test["Pneumonia"] == 1)]
-    df_test_balanced = balance_dataset(df_test, "Pneumonia")
+    df_test = df_test[(df_test["No Finding"] == 1) | (df_test[args.disease] == 1)]
+    df_test_balanced = balance_dataset(df_test, args.disease)
 
     print(f"Train: {len(df_train_balanced)} samples")
     print(f"Test: {len(df_test_balanced)} samples")
 
-    train_samples = prepare_samples(df_train_balanced, df_train_balanced.columns[-1024:])
+    train_samples = prepare_samples(df_train_balanced, df_train_balanced.columns[-1024:], args.disease)
     train_image_embeddings = torch.tensor(train_samples["features"])
 
-    test_samples = prepare_samples(df_test_balanced, df_test_balanced.columns[-1024:])
+    test_samples = prepare_samples(df_test_balanced, df_test_balanced.columns[-1024:], args.disease)
     test_image_embeddings = torch.tensor(test_samples["features"])
 
     # Initialize model

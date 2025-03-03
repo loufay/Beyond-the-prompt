@@ -36,9 +36,9 @@ def main():
     df_test_balanced = balance_dataset(df_test, args.disease)
 
     # Prepare samples
-    train_samples = prepare_samples(df_train_balanced, df_train_balanced.columns[-1024:])
-    val_samples = prepare_samples(df_val_balanced, df_val_balanced.columns[-1024:])
-    test_samples = prepare_samples(df_test_balanced, df_test_balanced.columns[-1024:])
+    train_samples = prepare_samples(df_train_balanced, df_train_balanced.columns[-1024:], args.disease)
+    val_samples = prepare_samples(df_val_balanced, df_val_balanced.columns[-1024:], args.disease)
+    test_samples = prepare_samples(df_test_balanced, df_test_balanced.columns[-1024:], args.disease)
 
     # Create DataLoaders
     train_loader = create_data_loader(train_samples, csv=df_train_balanced, mode="train", batch_size=8, num_workers=2, pin_memory=True)
@@ -79,7 +79,7 @@ def main():
     predictions = perform_inference(model_inference, test_loader)
 
     # Extract ground truth and predicted labels
-    ground_truth = [df_test_balanced[df_test_balanced["Path"] == pred["Path"]]["Pneumonia"].values[0] for pred in predictions]
+    ground_truth = [df_test_balanced[df_test_balanced["Path"] == pred["Path"]][args.disease].values[0] for pred in predictions]
     predicted_labels = [pred["PredictedClass"] for pred in predictions]
     probabilities = [pred["Probability"] for pred in predictions]
 

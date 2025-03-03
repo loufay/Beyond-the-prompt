@@ -78,10 +78,10 @@ class ZeroShotClassifier(nn.Module):
 
 
 # Prepare samples
-def prepare_samples(df, feature_columns):
+def prepare_samples(df, feature_columns,disease):
     return {
         "img_name": df["Path"].tolist(),
-        "labels": df["Pneumonia"].tolist(),
+        "labels": df[disease].tolist(),
         "features": [np.array(row) for row in df[feature_columns].values]
     }
 

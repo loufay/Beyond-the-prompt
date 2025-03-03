@@ -12,12 +12,13 @@ import wandb.agents
 import wandb
 
 class feature_loader(data.Dataset):
-    def __init__(self, data_dict, csv, mode="train"):
+    def __init__(self, data_dict, csv, mode="train"m disease="pneumonia"):
         self.data_dict = data_dict
         self.csv = csv
         self.mode = mode
         self.img_name = data_dict["img_name"]
         self.features = data_dict["features"]
+        self.disease = disease
 
     def __getitem__(self, item):
         img_name = self.img_name[item]
@@ -26,7 +27,7 @@ class feature_loader(data.Dataset):
 
         row = self.csv[self.csv["Path"] == img_name]
         if self.mode == "train" or self.mode == "val":
-            label = row["Pneumonia"].values
+            label = row[self.disease].values
             try:
                 label = np.array(label)
                 label = np.reshape(label, (1,))

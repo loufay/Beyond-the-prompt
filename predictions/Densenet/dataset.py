@@ -10,10 +10,11 @@ import os
 from utils_densenet import read_image
 # Dataset class
 class PneumoniaDataset(torch.utils.data.Dataset):
-    def __init__(self, dataframe, data_dir, transform=None):
+    def __init__(self, dataframe, data_dir, transform=None, disease="Pneumonia"):
         self.dataframe = dataframe
         self.data_dir = data_dir
         self.transform = transform
+        self.disease = disease
 
     def __len__(self):
         return len(self.dataframe)
@@ -28,7 +29,7 @@ class PneumoniaDataset(torch.utils.data.Dataset):
             image = self.transform(image)
 
                 # Determine label
-        if row["Pneumonia"] == 1:
+        if row[self.disease] == 1:
             label = 1  # Positive
         elif row["No Finding"] == 1:
             label = 0  # Negative
