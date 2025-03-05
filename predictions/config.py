@@ -17,6 +17,9 @@ def parse_arguments():
     # kNN
     parser.add_argument("--k_neighbors", type=int, default=5, help="Number of neighbors for k-NN")
 
+    # Training
+    parser.add_argument("--max_epochs", type=int, default=100, help="Maximum number of epochs for training")
+
     # LoRA
     parser.add_argument("--rank", type=int, default=8, help="Rank of the tensor decomposition")
 
@@ -27,9 +30,14 @@ def parse_arguments():
     parser.add_argument("--wandb_project", type=str, default="MedImageInsights_5", help="Weights & Biases project name")
 
     # VTE
-    parser.add_argument("--image_processing", type=str, default="original", help="Image processing method [original, avg_all, avg_confidence]")
-    parser.add_argument("--text_processing", type=str, default="weighted_reports_only", help="Text processing method [[all, prompts_only, reports_only, weighted_all, weighted_prompts_only, weighted_reports_only]")
+    parser.add_argument("--image_processing", type=str, default="avg_all", help="Image processing method [original, avg_all, avg_confidence]")
+    parser.add_argument("--text_processing", type=str, default="all", help="Text processing method [[all, prompts_only, reports_only, weighted_all, weighted_prompts_only, weighted_reports_only]")
+    
+    # BioMedClip
+    parser.add_argument("--model_type", type=str, default="BioMedCLIP", help="Model type [MedImageInsight, BioMedCLIP]")
     return parser.parse_args()
+
+
 
 def get_dataset_config(dataset):
     configs = {
