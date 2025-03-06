@@ -24,6 +24,11 @@ More information about [MedImageInsight](https://arxiv.org/abs/2410.06542).
 ### CheXpert (out-of-domain, adult dataset)
 ### VinDR-PCXR (out-of-domain, pediatric dataset)
 
+## Comparing FM
+* CheXagent
+* RAD-DINO
+* Biomed-CLIP
+
 
 
 
