@@ -18,6 +18,8 @@ We observed large variation in model predictive performance depending on the cho
 ### MedImageInsight (MI2)
 More information about [MedImageInsight](https://arxiv.org/abs/2410.06542).
 
+Running MedImageInsight [locally][https://huggingface.co/lion-ai/MedImageInsights]
+
 ## Datasets
 
 ### MIMIC-CXR (in-domain, adult dataset)
