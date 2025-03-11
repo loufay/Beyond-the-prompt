@@ -26,7 +26,7 @@ def create_wandb_run_name(args, experiment_type="report"):
         # Determine the report type
         if args.report_type == "Findings":
             report_type = "findings"
-        elif args.report_type == "Impressions":
+        elif args.report_type == "Impression":
             report_type = "impressions"
         elif args.report_type == "Combined":
             report_type = "combined"
@@ -35,6 +35,8 @@ def create_wandb_run_name(args, experiment_type="report"):
     
         # Base name components
         name_parts = [
+            args.model_type,                      # Model type: BioMedCLIP/MedImageInsight
+            args.disease,                         # Disease being analyzed
             args.dataset, 
             report_type,                         # Report type: findings/impressions/combined/full_report
             "zeroshot",                          # Always include 'zeroshot' to identify the experiment type
@@ -47,6 +49,8 @@ def create_wandb_run_name(args, experiment_type="report"):
     elif experiment_type == "zeroshot":
         # Base name components
         name_parts = [
+            args.model_type,                      # Model type: BioMedCLIP/MedImageInsight
+            args.disease,
             args.dataset,                        # Dataset being analyzed
             "zeroshot",                          # Always include 'zeroshot' to identify the experiment type
             args.disease,   # Number of reports per disease
@@ -55,6 +59,7 @@ def create_wandb_run_name(args, experiment_type="report"):
     elif experiment_type == "knn":
         # Base name components
         name_parts = [
+            args.disease,
             args.dataset,                        # Dataset being analyzed
             str(args.k_neighbors),                         
             "knn",   # Number of reports per disease
@@ -68,6 +73,7 @@ def create_wandb_run_name(args, experiment_type="report"):
     elif experiment_type in ["mlp", "linear_probe"]:
         # Base name components
         name_parts = [
+            args.disease,
             args.dataset,                        # Dataset being analyzed
             experiment_type,   # Number of reports per disease
             str(args.train_data_percentage),
@@ -79,6 +85,7 @@ def create_wandb_run_name(args, experiment_type="report"):
     elif experiment_type in ["lora"]:
         # Base name components
         name_parts = [
+            args.disease,
             args.dataset,                        # Dataset being analyzed
             experiment_type,   # Number of reports per disease
             str(args.train_data_percentage),
@@ -90,6 +97,8 @@ def create_wandb_run_name(args, experiment_type="report"):
     elif experiment_type == "vte":
         # Base name components
         name_parts = [
+            args.model_type,                      # Model type: BioMedCLIP/MedImageInsight
+            args.disease,
             args.dataset,                        # Dataset being analyzed
             "vte",
             args.image_processing,
@@ -98,6 +107,7 @@ def create_wandb_run_name(args, experiment_type="report"):
     elif experiment_type == "weighted_ensemble":
         # Base name components
         name_parts = [
+            args.disease,
             args.dataset,                        # Dataset being analyzed
             "weighted_ensemble",
             args.image_processing,
@@ -111,6 +121,7 @@ def create_wandb_run_name(args, experiment_type="report"):
     else:
         # Base name components
         name_parts = [
+            args.disease,
             args.dataset,                        # Dataset being analyzed
             "zeroshot",                          # Always include 'zeroshot' to identify the experiment type
             args.disease,   # Number of reports per disease
@@ -277,7 +288,7 @@ def chest_xray_augmentations(image, num_views=3):
 
     return augmented_views
 
-def augment_image_to_base64(image, num_views=3):
+def augment_image_to_base64(image, num_views=3, model_type="MedImageInsight"):
     """
     Generate base64-encoded strings for augmented views of the input image in parallel.
 
@@ -296,6 +307,9 @@ def augment_image_to_base64(image, num_views=3):
  #   augmented_views = [view.resize((512, 512)) for view in augmented_views]
 
     all_views = [image] + augmented_views
+
+    if model_type == "BioMedCLIP":
+        return all_views
 
     def encode_to_base64(augmented_image):
         # Save augmented image to an in-memory buffer as .jpg

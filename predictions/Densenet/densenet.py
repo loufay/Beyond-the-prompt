@@ -46,6 +46,7 @@ def main():
     # Load and balance datasets
     data_path = os.path.join(os.getcwd(), "MedImageInsights/data", dataset_config["data_path"])
     df_train, df_val, df_test = load_data(data_path, args.disease)
+    df_train = balance_dataset(df_train, args.disease, args.train_data_percentage, args.train_vindr_percentage)
     df_test_balanced = balance_dataset(df_test, args.disease)
 
     print(f'Train data: {len(df_train)}')
