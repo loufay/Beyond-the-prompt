@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="URL_OF_THE_WORK" target="_blank">
-    <img src="MCC_Train_data.png" alt="Framework" width="60%">
+    <img src="MCC_Train_data.png" alt="Framework" width="100%">
   </a>
 </p>
 
@@ -18,7 +18,7 @@
 
 <p align="center">
   <a href="URL_OF_THE_WORK" target="_blank">
-    <img src="ACC_Train_data.png" alt="Framework" width="60%">
+    <img src="ACC_Train_data.png" alt="Framework" width="100%">
   </a>
 </p>
 
@@ -27,7 +27,7 @@
 
 <p align="center">
   <a href="URL_OF_THE_WORK" target="_blank">
-    <img src="TNR_Train_data.png" alt="Framework" width="60%">
+    <img src="TNR_Train_data.png" alt="Framework" width="100%">
   </a>
 </p>
 
@@ -36,6 +36,6 @@
 
 <p align="center">
   <a href="URL_OF_THE_WORK" target="_blank">
-    <img src="TPR_Train_data.png" alt="Framework" width="60%">
+    <img src="TPR_Train_data.png" alt="Framework" width="100%">
   </a>
 </p>
