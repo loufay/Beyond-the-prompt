@@ -18,11 +18,20 @@ We observed large variation in model predictive performance depending on the cho
 ### MedImageInsight (MI2)
 More information about [MedImageInsight](https://arxiv.org/abs/2410.06542).
 
+Downloading MedImageInsight from [Microsoft Azure](https://ml.azure.com/registries/azureml/models/MedImageInsight/version/6?tid=e1475833-dbe8-4ae0-894e-cd0f561c98f4#overview).
+
+Running MedImageInsight [locally](https://huggingface.co/lion-ai/MedImageInsights).
+
 ## Datasets
 
 ### MIMIC-CXR (in-domain, adult dataset)
 ### CheXpert (out-of-domain, adult dataset)
 ### VinDR-PCXR (out-of-domain, pediatric dataset)
+
+## Comparing FM
+* CheXagent
+* RAD-DINO
+* Biomed-CLIP
 
 
 
