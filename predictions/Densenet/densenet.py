@@ -79,7 +79,7 @@ def main():
         # Train the model
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
-    epochs = 1
+    epochs = 1000
     train(model, train_loader, val_loader, epochs, criterion, optimizer, scheduler, args.save_path)
 
 
