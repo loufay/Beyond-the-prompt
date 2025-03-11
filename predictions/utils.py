@@ -343,8 +343,8 @@ def balance_dataset(df, disease = "Pneumonia", percentage = 1, vindr_samples = F
         vindr_split = {0.01: 6, 0.1: 74, 0.5:372, 0.8: 594, 1.0: 744}
         minority_count = int(vindr_split[percentage]/2)
         
-    df_class_0 = df[df[disease] == 0].sample(minority_count, random_state=42)
-    df_class_1 = df[df[disease] == 1].sample(minority_count, random_state=42)
+    df_class_0 = df[df[disease] == 0].sample(minority_count)
+    df_class_1 = df[df[disease] == 1].sample(minority_count)
     df_balanced = pd.concat([df_class_0, df_class_1])
     # reset index
     df_balanced = df_balanced.reset_index(drop=True)
